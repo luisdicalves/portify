@@ -15,6 +15,9 @@ const OBJETIVO_LABELS: Record<string, string> = {
   independencia: 'Independência financeira', reforma: 'Reforma antecipada',
   rendimento: 'Rendimento passivo', crescimento: 'Crescimento de capital',
 }
+const EXPERIENCE_LABELS: Record<string, string> = {
+  iniciante: 'Iniciante', intermedio: 'Intermédio', avancado: 'Avançado',
+}
 const TAXA_POR_RISCO: Record<string, [number, number]> = {
   conservador: [0.04, 0.06], moderado: [0.06, 0.08],
   arrojado: [0.08, 0.11], 'muito-arrojado': [0.10, 0.14],
@@ -42,8 +45,9 @@ export default function Pronto() {
   const max = data.querPlano ? calcFV(data.investEuros, anos, tMax) : 0
 
   const SUMARIO = [
-    ['Perfil',    RISK_LABELS[risk] ?? '—'],
-    ['Objetivo',  OBJETIVO_LABELS[data.objetivo ?? ''] ?? '—'],
+    ['Experiência', EXPERIENCE_LABELS[data.experience ?? ''] ?? '—'],
+    ['Perfil',      RISK_LABELS[risk] ?? '—'],
+    ['Objetivo',    OBJETIVO_LABELS[data.objetivo ?? ''] ?? '—'],
     ...(data.querPlano ? [
       ['Investimento', `${data.investEuros} €/${data.periodo}`],
       ['Horizonte',    `${anos} anos`],
@@ -93,12 +97,12 @@ export default function Pronto() {
               <strong className="text-stone-900">{anos} anos</strong>, podes atingir entre
             </p>
             <p className="text-[28px] font-bold text-brand-600 mb-1">{fmt(min)} – {fmt(max)}</p>
-            <p className="text-[12px] text-stone-400 mb-8">
+            <p className="text-[12px] text-stone-400 mb-6">
               estimativa com CAGR entre {Math.round(tMin * 100)}% e {Math.round(tMax * 100)}%
             </p>
           </>
         ) : (
-          <p className="text-[13px] text-stone-500 mb-8 leading-relaxed">
+          <p className="text-[13px] text-stone-500 mb-6 leading-relaxed">
             A tua conta está pronta. Podes definir um plano a qualquer momento.
           </p>
         )}
