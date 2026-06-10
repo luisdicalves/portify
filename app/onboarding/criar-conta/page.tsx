@@ -23,12 +23,25 @@ export default function CriarConta() {
     setErro('')
     setLoading(true)
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data: authData, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: { data: { nome: nome.trim(), apelido: apelido.trim() } },
       })
-      if (error) { setErro(error.message); return }
+      if (error) {
+        setErro(error.message === 'User already registered'
+          ? 'Este email já tem conta. Faz login.'
+          : error.message)
+        return
+      }
+      const user = authData.user
+      if (user) {
+        await supabase.from('perfis').upsert({
+          id:      user.id,
+          nome:    nome.trim(),
+          apelido: apelido.trim(),
+        })
+      }
       update({ nome: nome.trim(), apelido: apelido.trim(), email: email.trim() })
       router.push('/onboarding/seguranca')
     } finally {
@@ -51,7 +64,7 @@ export default function CriarConta() {
         <Field label="Palavra-passe" type="password"  value={password} onChange={setPassword} placeholder="Mínimo 6 caracteres" />
         {erro && (
           <p className="text-[12px] text-red-500 bg-red-50 border border-red-100 rounded-xl px-4 py-3 mb-4">
-            {erro === 'User already registered' ? 'Este email já tem conta. Faz login.' : erro}
+            {erro}
           </p>
         )}
         <div className="flex items-center gap-3 my-4">

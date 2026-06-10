@@ -53,10 +53,10 @@ export default function Pronto() {
   async function entrar() {
     setLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user) {
         await supabase.from('perfis').upsert({
-          id:           user.id,
+          id:           session.user.id,
           nome:         data.nome,
           apelido:      data.apelido,
           experience:   data.experience,
@@ -70,7 +70,7 @@ export default function Pronto() {
         })
       }
     } catch (e) {
-      console.error(e)
+      console.error('Erro ao guardar perfil:', e)
     } finally {
       setLoading(false)
       router.push('/dashboard')
