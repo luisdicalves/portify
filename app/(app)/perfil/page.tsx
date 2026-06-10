@@ -6,7 +6,7 @@ import { ChevronRight, Settings, FileSpreadsheet, Link as LinkIcon,
   UserCog, ShieldCheck, Flame, Clock, Target, X, Check } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
-const RISK_OPTIONS   = [
+const RISK_OPTIONS = [
   { id:'conservador',    label:'Conservador',    sub:'Prefiro segurança a retorno' },
   { id:'moderado',       label:'Moderado',       sub:'Equilíbrio entre risco e retorno' },
   { id:'arrojado',       label:'Arrojado',       sub:'Aceito volatilidade por mais retorno' },
@@ -24,16 +24,15 @@ const OBJETIVO_OPTIONS = [
   { id:'rendimento',    label:'Rendimento passivo',       sub:'Dividendos regulares' },
   { id:'crescimento',   label:'Crescimento de capital',   sub:'Maximizar o valor da carteira' },
 ]
-const RISK_LABELS: Record<string,string>      = Object.fromEntries(RISK_OPTIONS.map(o=>[o.id,o.label]))
-const HORIZONTE_LABELS: Record<string,string> = Object.fromEntries(HORIZONTE_OPTIONS.map(o=>[o.id,o.label]))
-const OBJETIVO_LABELS: Record<string,string>  = Object.fromEntries(OBJETIVO_OPTIONS.map(o=>[o.id,o.label]))
+const RISK_LABELS:     Record<string,string> = Object.fromEntries(RISK_OPTIONS.map(o=>[o.id,o.label]))
+const HORIZONTE_LABELS:Record<string,string> = Object.fromEntries(HORIZONTE_OPTIONS.map(o=>[o.id,o.label]))
+const OBJETIVO_LABELS: Record<string,string> = Object.fromEntries(OBJETIVO_OPTIONS.map(o=>[o.id,o.label]))
 
 type PerfilData = {
   id: string; nome: string; apelido: string; email: string
-  risk: string; horizonte: string; objetivo: string; experience: string
+  data_nascimento: string; risk: string; horizonte: string; objetivo: string
 }
 
-/* ── Dialog genérica ── */
 function Dialog({ title, onClose, children }: { title:string; onClose:()=>void; children:React.ReactNode }) {
   return (
     <>
@@ -52,60 +51,73 @@ function Dialog({ title, onClose, children }: { title:string; onClose:()=>void; 
   )
 }
 
-/* ── Dialog dados pessoais ── */
+/* Dialog dados pessoais — só email editável */
 function DialogDadosPessoais({ perfil, onClose, onSave }: {
-  perfil: PerfilData; onClose:()=>void; onSave:(nome:string,apelido:string)=>void
+  perfil: PerfilData; onClose:()=>void; onSave:(email:string)=>void
 }) {
-  const [nome,    setNome]    = useState(perfil.nome)
-  const [apelido, setApelido] = useState(perfil.apelido)
+  const [email,   setEmail]   = useState(perfil.email)
+  const [erro,    setErro]    = useState('')
   const [loading, setLoading] = useState(false)
 
+  function formatarData(d: string) {
+    if (!d) return '—'
+    try {
+      return new Date(d).toLocaleDateString('pt-PT')
+    } catch { return d }
+  }
+
   async function guardar() {
+    if (!email.includes('@')) { setErro('Email inválido.'); return }
     setLoading(true)
-    await supabase.from('perfis').update({ nome, apelido }).eq('id', perfil.id)
+    const { error } = await supabase.auth.updateUser({ email })
+    if (error) { setErro(error.message); setLoading(false); return }
     setLoading(false)
-    onSave(nome, apelido)
+    onSave(email)
     onClose()
   }
 
   return (
     <Dialog title="Dados pessoais" onClose={onClose}>
       <div className="space-y-3 mb-4">
-        <div>
-          <label className="block text-[12px] font-medium text-stone-500 mb-1.5">Primeiro nome</label>
-          <input value={nome} onChange={e=>setNome(e.target.value)}
-            className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-[11px] text-[14px] text-stone-900 focus:outline-none focus:border-brand-400"/>
-        </div>
-        <div>
-          <label className="block text-[12px] font-medium text-stone-500 mb-1.5">Apelido</label>
-          <input value={apelido} onChange={e=>setApelido(e.target.value)}
-            className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-[11px] text-[14px] text-stone-900 focus:outline-none focus:border-brand-400"/>
-        </div>
+        {/* Campos bloqueados */}
+        {[
+          { label: 'Primeiro nome',      value: perfil.nome },
+          { label: 'Apelido',            value: perfil.apelido },
+          { label: 'Data de nascimento', value: formatarData(perfil.data_nascimento) },
+        ].map(f => (
+          <div key={f.label}>
+            <label className="block text-[12px] font-medium text-stone-400 mb-1.5">{f.label}</label>
+            <div className="w-full bg-stone-100 border border-stone-200 rounded-xl px-4 py-[11px]
+              text-[14px] text-stone-400 flex items-center justify-between">
+              <span>{f.value || '—'}</span>
+              <span className="text-[11px] text-stone-300">bloqueado</span>
+            </div>
+          </div>
+        ))}
+        {/* Email editável */}
         <div>
           <label className="block text-[12px] font-medium text-stone-500 mb-1.5">Email</label>
-          <div className="w-full bg-stone-100 border border-stone-200 rounded-xl px-4 py-[11px] text-[14px] text-stone-400">{perfil.email}</div>
+          <input value={email} onChange={e=>setEmail(e.target.value)} type="email"
+            className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-[11px]
+              text-[14px] text-stone-900 focus:outline-none focus:border-brand-400 transition-colors"/>
         </div>
+        {erro && <p className="text-[12px] text-red-500 bg-red-50 rounded-xl px-4 py-3">{erro}</p>}
       </div>
       <button onClick={guardar} disabled={loading}
         className="w-full bg-brand-400 text-white font-medium text-[15px] py-[13px] rounded-xl disabled:opacity-50">
-        {loading ? 'A guardar...' : 'Guardar'}
+        {loading ? 'A guardar...' : 'Guardar email'}
       </button>
     </Dialog>
   )
 }
 
-/* ── Dialog opções (risco, horizonte, objetivo) ── */
+/* Dialog opções (risco, horizonte, objetivo) */
 function DialogOpcoes({ title, options, value, onClose, onSave, campoDb }: {
-  title: string
-  options: { id:string; label:string; sub?:string }[]
-  value: string
-  onClose: ()=>void
-  onSave: (id:string)=>void
-  campoDb: string
+  title:string; options:{id:string;label:string;sub?:string}[]
+  value:string; onClose:()=>void; onSave:(id:string)=>void; campoDb:string
 }) {
   const [sel,     setSel]     = useState(value)
   const [loading, setLoading] = useState(false)
-  const { data: { session } } = { data: { session: null as any } }
 
   async function guardar() {
     setLoading(true)
@@ -120,17 +132,17 @@ function DialogOpcoes({ title, options, value, onClose, onSave, campoDb }: {
 
   return (
     <Dialog title={title} onClose={onClose}>
-      <div className="space-y-2 mb-4 max-h-64 overflow-y-auto">
+      <div className="space-y-2 mb-4 max-h-72 overflow-y-auto">
         {options.map(o => (
-          <button key={o.id} onClick={() => setSel(o.id)}
+          <button key={o.id} onClick={()=>setSel(o.id)}
             className={`w-full text-left rounded-xl px-4 py-3 border flex items-center justify-between gap-3 transition-all
               ${sel===o.id ? 'bg-brand-50 border-brand-400' : 'bg-stone-50 border-stone-200'}`}>
             <div>
-              <p className={`text-[14px] font-medium ${sel===o.id ? 'text-brand-800' : 'text-stone-900'}`}>{o.label}</p>
-              {o.sub && <p className={`text-[12px] mt-0.5 ${sel===o.id ? 'text-brand-600' : 'text-stone-500'}`}>{o.sub}</p>}
+              <p className={`text-[14px] font-medium ${sel===o.id?'text-brand-800':'text-stone-900'}`}>{o.label}</p>
+              {o.sub && <p className={`text-[12px] mt-0.5 ${sel===o.id?'text-brand-600':'text-stone-500'}`}>{o.sub}</p>}
             </div>
             <div className={`w-5 h-5 rounded-full border-[1.5px] flex items-center justify-center flex-shrink-0
-              ${sel===o.id ? 'bg-brand-400 border-brand-400' : 'border-stone-300'}`}>
+              ${sel===o.id?'bg-brand-400 border-brand-400':'border-stone-300'}`}>
               {sel===o.id && <Check size={11} color="white" strokeWidth={3}/>}
             </div>
           </button>
@@ -155,33 +167,33 @@ function ProfileRow({ icon:Icon, label, value, onClick }: {
     <button onClick={onClick} className="w-full flex items-center gap-3 py-3 border-b border-stone-100 last:border-0">
       <Icon size={18} strokeWidth={1.75} color="#888780" className="flex-shrink-0"/>
       <span className="text-[14px] text-stone-900 flex-1 text-left">{label}</span>
-      {value && <span className="text-[13px] text-stone-400">{value}</span>}
-      <ChevronRight size={14} color="#D3D1C7"/>
+      {value && <span className="text-[13px] text-stone-400 truncate max-w-[120px]">{value}</span>}
+      <ChevronRight size={14} color="#D3D1C7" className="flex-shrink-0"/>
     </button>
   )
 }
 
 export default function Perfil() {
-  const router = useRouter()
-  const [perfil,  setPerfil]  = useState<PerfilData|null>(null)
-  const [dialog,  setDialog]  = useState<'pessoais'|'risco'|'horizonte'|'objetivo'|null>(null)
+  const router  = useRouter()
+  const [perfil, setPerfil] = useState<PerfilData|null>(null)
+  const [dialog, setDialog] = useState<'pessoais'|'risco'|'horizonte'|'objetivo'|null>(null)
 
   useEffect(() => {
     async function carregar() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user) { router.push('/login'); return }
       const { data } = await supabase.from('perfis')
-        .select('nome, apelido, risk, horizonte, objetivo, experience')
+        .select('nome, apelido, data_nascimento, risk, horizonte, objetivo')
         .eq('id', session.user.id).single()
       setPerfil({
-        id:         session.user.id,
-        nome:       data?.nome       ?? session.user.user_metadata?.nome    ?? '',
-        apelido:    data?.apelido    ?? session.user.user_metadata?.apelido ?? '',
-        email:      session.user.email ?? '',
-        risk:       data?.risk       ?? '',
-        horizonte:  data?.horizonte  ?? '',
-        objetivo:   data?.objetivo   ?? '',
-        experience: data?.experience ?? '',
+        id:               session.user.id,
+        nome:             data?.nome             ?? session.user.user_metadata?.nome    ?? '',
+        apelido:          data?.apelido          ?? session.user.user_metadata?.apelido ?? '',
+        email:            session.user.email     ?? '',
+        data_nascimento:  data?.data_nascimento  ?? session.user.user_metadata?.data_nascimento ?? '',
+        risk:             data?.risk             ?? '',
+        horizonte:        data?.horizonte        ?? '',
+        objetivo:         data?.objetivo         ?? '',
       })
     }
     carregar()
@@ -201,25 +213,21 @@ export default function Perfil() {
   return (
     <div className="pb-2">
 
-      {/* Dialogs */}
       {dialog==='pessoais' && (
         <DialogDadosPessoais perfil={perfil} onClose={()=>setDialog(null)}
-          onSave={(nome,apelido)=>setPerfil(p=>p?{...p,nome,apelido}:p)}/>
+          onSave={email=>setPerfil(p=>p?{...p,email}:p)}/>
       )}
       {dialog==='risco' && (
         <DialogOpcoes title="Perfil de risco" options={RISK_OPTIONS} value={perfil.risk}
-          campoDb="risk" onClose={()=>setDialog(null)}
-          onSave={v=>setPerfil(p=>p?{...p,risk:v}:p)}/>
+          campoDb="risk" onClose={()=>setDialog(null)} onSave={v=>setPerfil(p=>p?{...p,risk:v}:p)}/>
       )}
       {dialog==='horizonte' && (
         <DialogOpcoes title="Horizonte temporal" options={HORIZONTE_OPTIONS} value={perfil.horizonte}
-          campoDb="horizonte" onClose={()=>setDialog(null)}
-          onSave={v=>setPerfil(p=>p?{...p,horizonte:v}:p)}/>
+          campoDb="horizonte" onClose={()=>setDialog(null)} onSave={v=>setPerfil(p=>p?{...p,horizonte:v}:p)}/>
       )}
       {dialog==='objetivo' && (
         <DialogOpcoes title="Objetivo principal" options={OBJETIVO_OPTIONS} value={perfil.objetivo}
-          campoDb="objetivo" onClose={()=>setDialog(null)}
-          onSave={v=>setPerfil(p=>p?{...p,objetivo:v}:p)}/>
+          campoDb="objetivo" onClose={()=>setDialog(null)} onSave={v=>setPerfil(p=>p?{...p,objetivo:v}:p)}/>
       )}
 
       <div className="bg-white px-5 pt-12 pb-3 flex justify-between items-center border-b border-stone-100">
@@ -236,9 +244,9 @@ export default function Perfil() {
             <div className="w-14 h-14 rounded-full bg-brand-50 flex items-center justify-center text-[20px] font-semibold text-brand-800 flex-shrink-0">
               {iniciais}
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-[17px] font-semibold text-stone-900">{perfil.nome} {perfil.apelido}</p>
-              <p className="text-[13px] text-stone-500 mb-2">{perfil.email}</p>
+              <p className="text-[13px] text-stone-500 mb-2 truncate">{perfil.email}</p>
               <div className="flex gap-2 flex-wrap">
                 {riskLabel!=='—' && <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-brand-50 text-brand-800">{riskLabel}</span>}
                 {horizLabel!=='—' && <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-800">{horizLabel}</span>}
@@ -253,7 +261,7 @@ export default function Perfil() {
           <p className="text-[11px] font-medium text-stone-400 uppercase tracking-wider mb-2">Perfil de investidor</p>
           <ProfileRow icon={Flame}  label="Perfil de risco"    value={riskLabel}  onClick={()=>setDialog('risco')}/>
           <ProfileRow icon={Clock}  label="Horizonte temporal" value={horizLabel} onClick={()=>setDialog('horizonte')}/>
-          <ProfileRow icon={Target} label="Objetivo"           value={objLabel.length>22?objLabel.slice(0,20)+'…':objLabel} onClick={()=>setDialog('objetivo')}/>
+          <ProfileRow icon={Target} label="Objetivo"           value={objLabel.length>20?objLabel.slice(0,18)+'…':objLabel} onClick={()=>setDialog('objetivo')}/>
         </div>
 
         <div className="bg-white rounded-2xl border border-stone-200 p-4">
