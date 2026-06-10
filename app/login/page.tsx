@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { TrendingUp } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { Screen, StatusBar, Field, BtnPrimary, BtnGhost } from '@/components/ui'
+import { Screen, Field, BtnPrimary, BtnGhost } from '@/components/ui'
 
 export default function Login() {
   const router = useRouter()
@@ -32,18 +32,15 @@ export default function Login() {
 
   async function recuperar() {
     if (!email.includes('@')) { setErro('Insere o teu email primeiro.'); return }
-    const { error } = await supabase.auth.resetPasswordForEmail(email)
-    if (error) { setErro(error.message); return }
+    await supabase.auth.resetPasswordForEmail(email)
     setErro('')
     alert('Email de recuperação enviado. Verifica a tua caixa de entrada.')
   }
 
   return (
     <Screen>
-      <StatusBar />
       <div className="flex-1 flex flex-col px-6 py-8">
 
-        {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <div className="w-14 h-14 bg-brand-50 rounded-[18px] flex items-center justify-center mb-3">
             <TrendingUp size={26} color="#1D9E75" strokeWidth={1.75} />
@@ -51,7 +48,7 @@ export default function Login() {
           <h1 className="text-[20px] font-semibold text-stone-900">Entrar na Portify</h1>
         </div>
 
-        <Field label="Email"         type="email"    value={email}    onChange={setEmail}    placeholder="joao@gmail.com"    />
+        <Field label="Email"         type="email"    value={email}    onChange={setEmail}    placeholder="joao@gmail.com"     />
         <Field label="Palavra-passe" type="password" value={password} onChange={setPassword} placeholder="A tua palavra-passe" />
 
         {erro && (
@@ -61,8 +58,7 @@ export default function Login() {
           </p>
         )}
 
-        <button
-          onClick={recuperar}
+        <button onClick={recuperar}
           className="text-[12px] text-brand-600 text-right mb-6 -mt-2">
           Esqueci a palavra-passe
         </button>
@@ -77,7 +73,7 @@ export default function Login() {
           <div className="flex-1 h-px bg-stone-200" />
         </div>
 
-        <BtnGhost onClick={() => router.push('/onboarding')}>
+        <BtnGhost onClick={() => router.push('/onboarding/criar-conta')}>
           Criar conta gratuita
         </BtnGhost>
       </div>

@@ -2,17 +2,15 @@
 
 import { useRouter } from 'next/navigation'
 import { TrendingUp } from 'lucide-react'
-import { Screen, StatusBar, BtnPrimary, BtnGhost } from '@/components/ui'
+import { Screen, BtnPrimary, BtnGhost } from '@/components/ui'
 
 export default function BemVindo() {
   const router = useRouter()
 
   return (
     <Screen>
-      <StatusBar />
-      <div className="flex-1 flex flex-col items-center justify-center px-6 pb-8 pt-4">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 pb-8 pt-8">
 
-        {/* Logo */}
         <div className="w-[58px] h-[58px] bg-brand-50 rounded-[18px] flex items-center justify-center mb-4">
           <TrendingUp size={28} color="#1D9E75" strokeWidth={1.75} />
         </div>
@@ -24,7 +22,6 @@ export default function BemVindo() {
           O teu património, inteligente.
         </p>
 
-        {/* Destaques */}
         <div className="w-full bg-stone-50 rounded-2xl p-4 mb-8 space-y-3">
           {[
             ['Acompanha', 'ações, ETFs e dividendos num só lugar'],
@@ -46,7 +43,7 @@ export default function BemVindo() {
           <BtnPrimary onClick={() => router.push('/onboarding/criar-conta')}>
             Criar conta gratuita
           </BtnPrimary>
-          <BtnGhost onClick={() => router.push('/dashboard')}>
+          <BtnGhost onClick={() => router.push('/login')}>
             Já tenho conta
           </BtnGhost>
         </div>
