@@ -1,0 +1,17 @@
+import type { Metadata } from 'next'
+import './globals.css'
+
+export const metadata: Metadata = {
+  title: 'Portify',
+  description: 'O teu património, inteligente.',
+  manifest: '/manifest.json',
+  themeColor: '#1D9E75',
+}
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="pt">
+      <body>{children}</body>
+    </html>
+  )
+}
