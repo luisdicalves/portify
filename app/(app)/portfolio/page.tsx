@@ -23,13 +23,10 @@ const SUGESTOES = [
   { ticker: 'VWCE', nome: 'Vanguard FTSE All-World ETF',  tipo: 'ETF'  },
   { ticker: 'CSPX', nome: 'iShares Core S&P 500 ETF',     tipo: 'ETF'  },
   { ticker: 'IWDA', nome: 'iShares Core MSCI World ETF',  tipo: 'ETF'  },
-  { ticker: 'EIMI', nome: 'iShares Core MSCI EM IMI ETF', tipo: 'ETF'  },
   { ticker: 'AAPL', nome: 'Apple Inc.',                   tipo: 'Ação' },
   { ticker: 'MSFT', nome: 'Microsoft Corporation',        tipo: 'Ação' },
   { ticker: 'GOOGL',nome: 'Alphabet Inc.',                tipo: 'Ação' },
   { ticker: 'NVDA', nome: 'NVIDIA Corporation',           tipo: 'Ação' },
-  { ticker: 'AMZN', nome: 'Amazon.com Inc.',              tipo: 'Ação' },
-  { ticker: 'TSLA', nome: 'Tesla Inc.',                   tipo: 'Ação' },
   { ticker: 'O',    nome: 'Realty Income Corporation',    tipo: 'REIT' },
   { ticker: 'VNQ',  nome: 'Vanguard Real Estate ETF',     tipo: 'REIT' },
 ]
@@ -40,7 +37,7 @@ function fmt(n: number) {
 
 function AdicionarModal({ onClose, onAdd }: {
   onClose: () => void
-  onAdd: (p: Omit<Posicao, 'id'>) => void
+  onAdd: (p: Omit<Posicao, 'id'>) => Promise<string | null>
 }) {
   const [pesquisa,    setPesquisa]    = useState('')
   const [selecionado, setSelecionado] = useState<typeof SUGESTOES[0] | null>(null)
@@ -50,6 +47,7 @@ function AdicionarModal({ onClose, onAdd }: {
   const [moedaOpen,   setMoedaOpen]   = useState(false)
   const [step,        setStep]        = useState<'pesquisa' | 'detalhe'>('pesquisa')
   const [erro,        setErro]        = useState('')
+  const [loading,     setLoading]     = useState(false)
 
   const filtradas = SUGESTOES.filter(s =>
     s.ticker.toLowerCase().includes(pesquisa.toLowerCase()) ||
@@ -62,14 +60,15 @@ function AdicionarModal({ onClose, onAdd }: {
     setStep('detalhe')
   }
 
-  function confirmar() {
+  async function confirmar() {
     const q = parseFloat(quantidade.replace(',', '.'))
     const p = parseFloat(pm.replace(',', '.'))
     if (!selecionado) { setErro('Seleciona um ativo.'); return }
     if (!q || q <= 0) { setErro('Insere um número de ações válido.'); return }
     if (!p || p <= 0) { setErro('Insere um preço médio válido.'); return }
     setErro('')
-    onAdd({
+    setLoading(true)
+    const erroMsg = await onAdd({
       ticker:      selecionado.ticker,
       nome:        selecionado.nome,
       tipo:        selecionado.tipo,
@@ -77,6 +76,8 @@ function AdicionarModal({ onClose, onAdd }: {
       preco_medio: p,
       moeda:       moeda.split(' ')[0],
     })
+    setLoading(false)
+    if (erroMsg) { setErro(erroMsg); return }
     onClose()
   }
 
@@ -229,10 +230,10 @@ function AdicionarModal({ onClose, onAdd }: {
                   rounded-xl px-4 py-3">{erro}</p>
               )}
 
-              <button onClick={confirmar}
+              <button onClick={confirmar} disabled={loading}
                 className="w-full bg-brand-400 text-white font-medium text-[15px]
-                  py-[13px] rounded-xl active:scale-[0.98] transition-all">
-                Adicionar ao portfólio
+                  py-[13px] rounded-xl active:scale-[0.98] transition-all disabled:opacity-50">
+                {loading ? 'A guardar...' : 'Adicionar ao portfólio'}
               </button>
             </>
           )}
@@ -243,10 +244,11 @@ function AdicionarModal({ onClose, onAdd }: {
 }
 
 export default function Portfolio() {
-  const [filtro,       setFiltro]       = useState<Filtro>('Todos')
-  const [modalAberto,  setModalAberto]  = useState(false)
-  const [posicoes,     setPosicoes]     = useState<Posicao[]>([])
-  const [carregando,   setCarregando]   = useState(true)
+  const [filtro,      setFiltro]      = useState<Filtro>('Todos')
+  const [modalAberto, setModalAberto] = useState(false)
+  const [posicoes,    setPosicoes]    = useState<Posicao[]>([])
+  const [carregando,  setCarregando]  = useState(true)
+  const [debugMsg,    setDebugMsg]    = useState('')
 
   useEffect(() => {
     carregarPosicoes()
@@ -254,37 +256,51 @@ export default function Portfolio() {
 
   async function carregarPosicoes() {
     setCarregando(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      setDebugMsg('Sem sessão — não autenticado')
+      setCarregando(false)
+      return
+    }
     const { data, error } = await supabase
       .from('posicoes')
       .select('*')
       .order('criado_em', { ascending: false })
-    if (!error && data) setPosicoes(data)
+    if (error) {
+      setDebugMsg('Erro ao carregar: ' + error.message)
+    } else {
+      setDebugMsg('Sessão: ' + session.user.email + ' | ' + (data?.length ?? 0) + ' posições')
+      if (data) setPosicoes(data)
+    }
     setCarregando(false)
   }
 
-  async function adicionarPosicao(nova: Omit<Posicao, 'id'>) {
+  async function adicionarPosicao(nova: Omit<Posicao, 'id'>): Promise<string | null> {
     const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.user) return
+    if (!session?.user) return 'Sem sessão — faz login primeiro'
 
     const existente = posicoes.find(p => p.ticker === nova.ticker)
     if (existente) {
       const totalUnid = existente.unidades + nova.unidades
       const pmMedio   = (existente.preco_medio * existente.unidades + nova.preco_medio * nova.unidades) / totalUnid
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('posicoes')
         .update({ unidades: totalUnid, preco_medio: pmMedio })
         .eq('id', existente.id)
         .select()
         .single()
+      if (error) return 'Erro ao actualizar: ' + error.message
       if (data) setPosicoes(prev => prev.map(p => p.id === existente.id ? data : p))
     } else {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('posicoes')
         .insert({ ...nova, user_id: session.user.id })
         .select()
         .single()
+      if (error) return 'Erro ao inserir: ' + error.message
       if (data) setPosicoes(prev => [data, ...prev])
     }
+    return null
   }
 
   const filtradas = posicoes.filter(p => {
@@ -294,13 +310,6 @@ export default function Portfolio() {
     if (filtro === 'REITs') return p.tipo === 'REIT'
     return true
   })
-
-  const melhor = posicoes.length >= 2
-    ? [...posicoes].sort((a,b) => (b.preco_medio - a.preco_medio) / a.preco_medio - (a.preco_medio - b.preco_medio) / b.preco_medio)[0]
-    : null
-  const pior = posicoes.length >= 2
-    ? [...posicoes].sort((a,b) => a.preco_medio - b.preco_medio)[0]
-    : null
 
   return (
     <div className="pb-2">
@@ -322,6 +331,13 @@ export default function Portfolio() {
       </div>
 
       <div className="px-4 pt-4 space-y-3">
+
+        {debugMsg && (
+          <div className="bg-stone-100 rounded-xl px-4 py-3 text-[11px] text-stone-600 break-all">
+            {debugMsg}
+          </div>
+        )}
+
         <div className="flex gap-2">
           {(['Todos','ETFs','Ações','REITs'] as Filtro[]).map(f => (
             <button key={f} onClick={() => setFiltro(f)}
@@ -340,15 +356,11 @@ export default function Portfolio() {
           </div>
         ) : filtradas.length === 0 ? (
           <div className="bg-white rounded-2xl border border-stone-200 p-8 text-center">
-            <p className="text-[14px] text-stone-500 mb-1">
-              {filtro === 'Todos' ? 'Ainda não tens posições.' : `Sem posições do tipo ${filtro}.`}
-            </p>
-            {filtro === 'Todos' && (
-              <button onClick={() => setModalAberto(true)}
-                className="text-[13px] text-brand-600 font-medium mt-1">
-                + Adicionar a primeira posição
-              </button>
-            )}
+            <p className="text-[14px] text-stone-500 mb-1">Ainda não tens posições.</p>
+            <button onClick={() => setModalAberto(true)}
+              className="text-[13px] text-brand-600 font-medium mt-1">
+              + Adicionar a primeira posição
+            </button>
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden">
@@ -373,22 +385,6 @@ export default function Portfolio() {
                 </div>
               </div>
             ))}
-          </div>
-        )}
-
-        {posicoes.length >= 2 && melhor && pior && (
-          <div className="bg-white rounded-2xl border border-stone-200 p-4">
-            <p className="text-[11px] font-medium text-stone-400 uppercase tracking-wider mb-3">Performance</p>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="bg-stone-50 rounded-xl p-3">
-                <p className="text-[11px] text-stone-500 mb-1">Maior posição</p>
-                <p className="text-[14px] font-semibold text-brand-600">{melhor.ticker}</p>
-              </div>
-              <div className="bg-stone-50 rounded-xl p-3">
-                <p className="text-[11px] text-stone-500 mb-1">Menor posição</p>
-                <p className="text-[14px] font-semibold text-stone-600">{pior.ticker}</p>
-              </div>
-            </div>
           </div>
         )}
 
