@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useOnboarding } from '@/lib/onboarding-context'
 import { Check } from 'lucide-react'
 import { Screen, StatusBar, BtnPrimary } from '@/components/ui'
@@ -33,6 +33,7 @@ export default function Pronto() {
   const router = useRouter()
   const { data } = useOnboarding()
   const [loading, setLoading] = useState(false)
+  const [debug, setDebug] = useState('')
 
   const risk      = data.risk      ?? 'arrojado'
   const horizonte = data.horizonte ?? '10mais'
@@ -40,6 +41,16 @@ export default function Pronto() {
   const [tMin, tMax] = TAXA_POR_RISCO[risk] ?? [0.08, 0.11]
   const min = data.querPlano ? calcFV(data.investEuros, anos, tMin) : 0
   const max = data.querPlano ? calcFV(data.investEuros, anos, tMax) : 0
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setDebug('Sessão activa: ' + session.user.email)
+      } else {
+        setDebug('SEM SESSÃO — utilizador não autenticado')
+      }
+    })
+  }, [])
 
   const SUMARIO = [
     ['Perfil',    RISK_LABELS[risk] ?? '—'],
@@ -55,7 +66,7 @@ export default function Pronto() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user) {
-        await supabase.from('perfis').upsert({
+        const { error } = await supabase.from('perfis').upsert({
           id:           session.user.id,
           nome:         data.nome,
           apelido:      data.apelido,
@@ -68,12 +79,16 @@ export default function Pronto() {
           periodo:      data.periodo,
           horizonte:    data.horizonte,
         })
+        if (error) setDebug('ERRO upsert: ' + error.message)
+        else setDebug('Perfil guardado com sucesso!')
+      } else {
+        setDebug('ERRO: sem sessão ao guardar')
       }
-    } catch (e) {
-      console.error('Erro ao guardar perfil:', e)
+    } catch (e: any) {
+      setDebug('ERRO: ' + e.message)
     } finally {
       setLoading(false)
-      router.push('/dashboard')
+      setTimeout(() => router.push('/dashboard'), 1000)
     }
   }
 
@@ -87,6 +102,13 @@ export default function Pronto() {
         <h2 className="text-[22px] font-semibold text-stone-900 mb-2">
           Tudo pronto, {data.nome || 'João'}!
         </h2>
+
+        {debug && (
+          <p className="text-[11px] bg-stone-100 rounded-xl px-3 py-2 mb-4 w-full text-left break-all">
+            {debug}
+          </p>
+        )}
+
         {data.querPlano && min > 0 ? (
           <>
             <p className="text-[13px] text-stone-500 leading-relaxed mb-2">
