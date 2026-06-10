@@ -51,7 +51,8 @@ export default function QuerPlano() {
           </BtnPrimary>
           <button
             onClick={() => escolher(false)}
-            className="w-full text-center text-[13px] text-stone-400 py-2">
+            className="w-full text-center text-[13px] text-stone-400 py-2
+              hover:text-stone-600 transition-colors cursor-pointer">
             Saltar este passo
           </button>
         </div>

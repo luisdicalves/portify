@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useOnboarding, Experience } from '@/lib/onboarding-context'
-import { Screen, StatusBar, StepDots, ProgressBar, OptionItem, BtnPrimary } from '@/components/ui'
+import { Screen, StepDots, ProgressBar, OptionItem, BtnPrimary } from '@/components/ui'
 
 const OPTIONS: { id: Experience; title: string; subtitle: string }[] = [
   { id: 'iniciante',  title: 'Iniciante',  subtitle: 'Estou a começar a investir'    },
@@ -16,7 +16,7 @@ export default function Experiencia() {
 
   return (
     <Screen>
-      <StatusBar />
+      
       <div className="flex-1 flex flex-col px-6 py-5">
         <StepDots total={5} current={2} />
         <ProgressBar pct={33} />

@@ -37,9 +37,7 @@ export default function CriarConta() {
       const user = authData.user
       if (user) {
         await supabase.from('perfis').upsert({
-          id:      user.id,
-          nome:    nome.trim(),
-          apelido: apelido.trim(),
+          id: user.id, nome: nome.trim(), apelido: apelido.trim(),
         })
       }
       update({ nome: nome.trim(), apelido: apelido.trim(), email: email.trim() })
@@ -59,8 +57,8 @@ export default function CriarConta() {
           Começa em menos de 2 minutos, sem cartão.
         </p>
 
-        <Field label="Primeiro nome" value={nome}     onChange={setNome}     placeholder="João"              />
-        <Field label="Apelido"       value={apelido}  onChange={setApelido}  placeholder="Silva"             />
+        <Field label="Primeiro nome" value={nome}     onChange={setNome}     placeholder="João"               />
+        <Field label="Apelido"       value={apelido}  onChange={setApelido}  placeholder="Silva"              />
         <Field label="Email"         type="email"     value={email}    onChange={setEmail}    placeholder="joao@gmail.com"    />
         <Field label="Palavra-passe" type="password"  value={password} onChange={setPassword} placeholder="Mínimo 6 caracteres" />
 
@@ -70,7 +68,12 @@ export default function CriarConta() {
           </p>
         )}
 
-        <div className="flex items-center gap-3 my-4">
+        {/* Botão Continuar imediatamente após password */}
+        <BtnPrimary onClick={avancar} disabled={!podeAvancar || loading} className="mt-2 mb-6">
+          {loading ? 'A criar conta...' : 'Continuar'}
+        </BtnPrimary>
+
+        <div className="flex items-center gap-3 mb-4">
           <div className="flex-1 h-px bg-stone-200" />
           <span className="text-[12px] text-stone-400">ou continuar com</span>
           <div className="flex-1 h-px bg-stone-200" />
@@ -81,7 +84,7 @@ export default function CriarConta() {
           active:bg-stone-100 transition-colors">
           Apple ID
         </button>
-        <button className="w-full bg-stone-50 border border-stone-300 rounded-xl py-[10px] mb-4
+        <button className="w-full bg-stone-50 border border-stone-300 rounded-xl py-[10px] mb-6
           text-[13px] text-stone-900 font-medium flex items-center justify-center gap-2
           active:bg-stone-100 transition-colors">
           Google
@@ -93,18 +96,11 @@ export default function CriarConta() {
           <div className="flex-1 h-px bg-stone-200" />
         </div>
 
-        <button
-          onClick={() => router.push('/login')}
-          className="w-full bg-transparent border border-stone-300 rounded-xl py-[11px] mb-4
+        <button onClick={() => router.push('/login')}
+          className="w-full bg-transparent border border-stone-300 rounded-xl py-[11px]
             text-[14px] text-stone-600 font-medium active:bg-stone-50 transition-colors">
           Entrar na conta
         </button>
-
-        <div className="mt-auto pt-2">
-          <BtnPrimary onClick={avancar} disabled={!podeAvancar || loading}>
-            {loading ? 'A criar conta...' : 'Continuar'}
-          </BtnPrimary>
-        </div>
       </div>
     </Screen>
   )

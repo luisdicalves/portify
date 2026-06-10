@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useOnboarding } from '@/lib/onboarding-context'
 import { Check } from 'lucide-react'
-import { Screen, StatusBar, BtnPrimary } from '@/components/ui'
+import { Screen, BtnPrimary } from '@/components/ui'
 import { supabase } from '@/lib/supabase'
 
 const RISK_LABELS: Record<string, string> = {
@@ -50,7 +50,7 @@ export default function Pronto() {
     ] : []),
   ]
 
-  async function entrar() {
+  async function finalizar() {
     setLoading(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -79,7 +79,6 @@ export default function Pronto() {
 
   return (
     <Screen>
-      <StatusBar />
       <div className="flex-1 flex flex-col items-center px-6 py-8 text-center">
         <div className="w-16 h-16 bg-brand-50 rounded-[20px] flex items-center justify-center mb-5">
           <Check size={32} color="#1D9E75" strokeWidth={2} />
@@ -113,8 +112,8 @@ export default function Pronto() {
             </div>
           ))}
         </div>
-        <BtnPrimary onClick={entrar} disabled={loading}>
-          {loading ? 'A guardar...' : 'Entrar na app →'}
+        <BtnPrimary onClick={finalizar} disabled={loading}>
+          {loading ? 'A guardar...' : 'Finalizar'}
         </BtnPrimary>
       </div>
     </Screen>

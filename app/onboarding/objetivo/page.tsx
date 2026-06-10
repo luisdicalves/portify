@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useOnboarding, Objetivo } from '@/lib/onboarding-context'
-import { Screen, StatusBar, StepDots, ProgressBar, OptionItem, BtnPrimary } from '@/components/ui'
+import { Screen, StepDots, ProgressBar, OptionItem, BtnPrimary } from '@/components/ui'
 
 const OPTIONS: { id: Objetivo; title: string; subtitle: string }[] = [
   { id: 'independencia', title: 'Independência financeira', subtitle: 'Viver sem depender do salário'   },
@@ -17,7 +17,7 @@ export default function ObjetivoPrincipal() {
 
   return (
     <Screen>
-      <StatusBar />
+      
       <div className="flex-1 flex flex-col px-6 py-5">
         <StepDots total={5} current={4} />
         <ProgressBar pct={80} />

@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useOnboarding, RiskProfile } from '@/lib/onboarding-context'
-import { Screen, StatusBar, StepDots, ProgressBar, OptionItem, BtnPrimary } from '@/components/ui'
+import { Screen, StepDots, ProgressBar, OptionItem, BtnPrimary } from '@/components/ui'
 
 const OPTIONS: { id: RiskProfile; title: string; subtitle: string }[] = [
   { id: 'conservador',    title: 'Conservador',    subtitle: 'Prefiro segurança a retorno'          },
@@ -17,7 +17,7 @@ export default function PerfilRisco() {
 
   return (
     <Screen>
-      <StatusBar />
+      
       <div className="flex-1 flex flex-col px-6 py-5">
         <StepDots total={5} current={3} />
         <ProgressBar pct={60} />

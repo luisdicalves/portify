@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useOnboarding, Periodo, Horizonte } from '@/lib/onboarding-context'
-import { Screen, StatusBar, Chip, BtnPrimary } from '@/components/ui'
+import { Screen, Chip, BtnPrimary } from '@/components/ui'
 
 const BUDGETS: { label: string; value: number }[] = [
   { label: '100 €',   value: 100  },
@@ -30,7 +30,7 @@ export default function DefinirPlano() {
 
   return (
     <Screen>
-      <StatusBar />
+      
       <div className="flex-1 flex flex-col px-6 py-5 overflow-y-auto">
         <div className="h-[3px] bg-stone-200 rounded-full mb-6">
           <div className="h-full bg-brand-400 rounded-full w-[92%]" />
