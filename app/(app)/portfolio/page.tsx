@@ -311,7 +311,7 @@ export default function Portfolio() {
 
   const buscarCotacoes = useCallback(async (lista: Posicao[]) => {
     setAtualizando(true)
-    const tickers = [...new Set(lista.map(p => p.ticker))]
+    const tickers = lista.map(p => p.ticker).filter((t, i, arr) => arr.indexOf(t) === i)
     const novasCotacoes: Record<string, Cotacao> = {}
     await Promise.all(tickers.map(async ticker => {
       try {
