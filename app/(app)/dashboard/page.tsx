@@ -14,7 +14,6 @@ type Posicao   = { ticker:string; tipo:string; unidades:number; preco_medio:numb
 
 function fmt(n:number, casas=2) { return n.toLocaleString('pt-PT',{minimumFractionDigits:casas,maximumFractionDigits:casas}) }
 function fmtEur(n:number) { return '€'+fmt(n) }
-function getIniciais(nome:string,apelido:string) { return ((nome?.[0]??'')+(apelido?.[0]??'')).toUpperCase()||'?' }
 
 function agregarPosicoes(ts:Transacao[]): Posicao[] {
   const m = new Map<string,Posicao>()
@@ -83,9 +82,6 @@ export default function Dashboard() {
       const {data:perfil} = await supabase.from('perfis').select('nome,apelido').eq('id',session.user.id).single()
       const nome    = perfil?.nome    ?? session.user.user_metadata?.nome    ?? ''
       const apelido = perfil?.apelido ?? session.user.user_metadata?.apelido ?? ''
-      setNomeCompleto(`${nome} ${apelido}`.trim() || session.user.email?.split('@')[0] || '?')
-      setIniciais(getIniciais(nome,apelido))
-
       const {data:trans} = await supabase.from('posicoes').select('*').order('data_compra',{ascending:true})
       if (trans) {
         setTransacoes(trans as Transacao[])
