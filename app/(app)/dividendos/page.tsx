@@ -1,6 +1,7 @@
 'use client'
 
 import { dividendos, dividendosMensais, proximosPagamentos } from '@/lib/mock-data'
+import { PageHeader } from '@/components/PageHeader'
 
 const DIAS_JUNHO = Array.from({ length: 30 }, (_, i) => i + 1)
 const EX_DIVIDEND = [9, 18]

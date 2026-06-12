@@ -1,5 +1,6 @@
 'use client'
 
+import { PageHeader } from '@/components/PageHeader'
 import { useState } from 'react'
 import type { Periodo } from '@/lib/onboarding-context'
 

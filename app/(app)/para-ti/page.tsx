@@ -1,5 +1,6 @@
 'use client'
 
+import { PageHeader } from '@/components/PageHeader'
 import { recomendacoes } from '@/lib/mock-data'
 
 type Tipo = 'risco' | 'oportunidade' | 'info'
