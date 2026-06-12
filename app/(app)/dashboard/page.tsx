@@ -7,49 +7,54 @@ import { Bell, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { recomendacoes } from '@/lib/mock-data'
 
-/* ─── Tipos ─── */
 type Transacao = { ticker:string; unidades:number; preco_medio:number; tipo:string; data_compra?:string }
 type Cotacao   = { preco:number; variacaoPct:number; bandeira:string }
-type PosicaoAgregada = { ticker:string; tipo:string; unidades:number; preco_medio:number }
+type Posicao   = { ticker:string; tipo:string; unidades:number; preco_medio:number }
 
-/* ─── Helpers ─── */
 function fmt(n:number, casas=2) { return n.toLocaleString('pt-PT',{minimumFractionDigits:casas,maximumFractionDigits:casas}) }
 function fmtEur(n:number) { return '€'+fmt(n) }
 function getIniciais(nome:string,apelido:string) { return ((nome?.[0]??'')+(apelido?.[0]??'')).toUpperCase()||'?' }
 
-function agregarPosicoes(transacoes:Transacao[]): PosicaoAgregada[] {
-  const mapa = new Map<string,PosicaoAgregada>()
-  for (const t of transacoes) {
-    const ex = mapa.get(t.ticker)
-    if (!ex) { mapa.set(t.ticker,{ticker:t.ticker,tipo:t.tipo,unidades:t.unidades,preco_medio:t.preco_medio}) }
+function agregarPosicoes(ts:Transacao[]): Posicao[] {
+  const m = new Map<string,Posicao>()
+  for (const t of ts) {
+    const ex = m.get(t.ticker)
+    if (!ex) { m.set(t.ticker,{ticker:t.ticker,tipo:t.tipo,unidades:t.unidades,preco_medio:t.preco_medio}) }
     else {
-      const novas = ex.unidades+t.unidades
-      if (novas<=0) { mapa.delete(t.ticker) }
-      else { mapa.set(t.ticker,{...ex,unidades:novas,preco_medio:(ex.preco_medio*ex.unidades+t.preco_medio*t.unidades)/novas}) }
+      const n = ex.unidades+t.unidades
+      if (n<=0) { m.delete(t.ticker) }
+      else { m.set(t.ticker,{...ex,unidades:n,preco_medio:(ex.preco_medio*ex.unidades+t.preco_medio*t.unidades)/n}) }
     }
   }
-  return Array.from(mapa.values()).filter(p=>p.unidades>0)
+  return Array.from(m.values()).filter(p=>p.unidades>0)
 }
 
-/* Calcula alocação por tipo */
-function calcAlocacao(posicoes:PosicaoAgregada[], cotacoes:Record<string,Cotacao>) {
-  const totais: Record<string,number> = {}
-  let total = 0
-  for (const p of posicoes) {
-    const preco = cotacoes[p.ticker]?.preco ?? p.preco_medio
-    const valor = preco * p.unidades
-    totais[p.tipo] = (totais[p.tipo]??0) + valor
-    total += valor
-  }
-  const CORES: Record<string,string> = { 'ETF':'#1D9E75','Ação':'#378ADD','REIT':'#EF9F27' }
-  return Object.entries(totais).map(([tipo,valor])=>({
-    nome: tipo+'s', valor: total>0?Math.round((valor/total)*100):0, cor: CORES[tipo]??'#D3D1C7'
-  }))
+function DonutChart({ dados }: { dados:{nome:string;valor:number;cor:string}[] }) {
+  let offset = 0
+  const circulos = dados.map(a => {
+    const d = (a.valor/100)*100
+    const el = { key:a.nome, d, offset, cor:a.cor }
+    offset += d
+    return el
+  })
+  return (
+    <svg viewBox="0 0 36 36" className="rotate-[-90deg] w-[72px] h-[72px]">
+      {circulos.map(c => (
+        <circle
+          key={c.key}
+          cx="18" cy="18" r="15.9"
+          fill="none"
+          stroke={c.cor}
+          strokeWidth="4"
+          strokeDasharray={`${c.d} ${100-c.d}`}
+          strokeDashoffset={-c.offset}
+        />
+      ))}
+    </svg>
+  )
 }
 
-const TIME_TABS = ['1M','3M','6M','1A','Tudo']
-
-function MetricCard({ label,value,sub,green,red }: { label:string;value:string;sub?:string;green?:boolean;red?:boolean }) {
+function MetricCard({ label,value,sub,green,red }: {label:string;value:string;sub?:string;green?:boolean;red?:boolean}) {
   return (
     <div className="bg-stone-50 rounded-xl p-3">
       <p className="text-[11px] text-stone-500 mb-1">{label}</p>
@@ -59,13 +64,15 @@ function MetricCard({ label,value,sub,green,red }: { label:string;value:string;s
   )
 }
 
+const TIME_TABS = ['1M','3M','6M','1A','Tudo']
+
 export default function Dashboard() {
   const router = useRouter()
-  const [nomeCompleto,   setNomeCompleto]   = useState('')
-  const [iniciais,       setIniciais]       = useState('...')
-  const [transacoes,     setTransacoes]     = useState<Transacao[]>([])
-  const [cotacoes,       setCotacoes]       = useState<Record<string,Cotacao>>({})
-  const [carregando,     setCarregando]     = useState(true)
+  const [nomeCompleto,  setNomeCompleto]  = useState('')
+  const [iniciais,      setIniciais]      = useState('...')
+  const [transacoes,    setTransacoes]    = useState<Transacao[]>([])
+  const [cotacoes,      setCotacoes]      = useState<Record<string,Cotacao>>({})
+  const [carregando,    setCarregando]    = useState(true)
   const riscos        = recomendacoes.filter(r=>r.tipo==='risco')
   const oportunidades = recomendacoes.filter(r=>r.tipo==='oportunidade')
 
@@ -74,18 +81,15 @@ export default function Dashboard() {
       const {data:{session}} = await supabase.auth.getSession()
       if (!session?.user) { router.push('/login'); return }
 
-      // Perfil
       const {data:perfil} = await supabase.from('perfis').select('nome,apelido').eq('id',session.user.id).single()
       const nome    = perfil?.nome    ?? session.user.user_metadata?.nome    ?? ''
       const apelido = perfil?.apelido ?? session.user.user_metadata?.apelido ?? ''
       setNomeCompleto(`${nome} ${apelido}`.trim() || session.user.email?.split('@')[0] || '?')
       setIniciais(getIniciais(nome,apelido))
 
-      // Transações
       const {data:trans} = await supabase.from('posicoes').select('*').order('data_compra',{ascending:true})
       if (trans) {
         setTransacoes(trans as Transacao[])
-        // Buscar cotações
         const tickers = (trans as Transacao[]).map(t=>t.ticker).filter((t,i,a)=>a.indexOf(t)===i)
         const novas:Record<string,Cotacao>={}
         await Promise.all(tickers.map(async ticker=>{
@@ -98,41 +102,40 @@ export default function Dashboard() {
     load()
   },[router])
 
-  /* Calcular métricas reais */
-  const posicoes      = agregarPosicoes(transacoes)
-  const totalInvestido= transacoes.filter(t=>t.unidades>0).reduce((s,t)=>s+t.unidades*t.preco_medio,0)
-  const valorAtual    = posicoes.reduce((s,p)=>{
-    const preco = cotacoes[p.ticker]?.preco ?? p.preco_medio
-    return s + preco * p.unidades
-  },0)
-  const ganhoTotal    = valorAtual - posicoes.reduce((s,p)=>s+p.preco_medio*p.unidades,0)
-  const ganhoPercent  = posicoes.reduce((s,p)=>s+p.preco_medio*p.unidades,0) > 0
-    ? (ganhoTotal / posicoes.reduce((s,p)=>s+p.preco_medio*p.unidades,0)) * 100 : 0
-  const positivo      = ganhoTotal >= 0
-  const alocacao      = calcAlocacao(posicoes, cotacoes)
+  const posicoes       = agregarPosicoes(transacoes)
+  const custoTotal     = posicoes.reduce((s,p)=>s+p.preco_medio*p.unidades,0)
+  const totalInvestido = transacoes.filter(t=>t.unidades>0).reduce((s,t)=>s+t.unidades*t.preco_medio,0)
+  const valorAtual     = posicoes.reduce((s,p)=>s+(cotacoes[p.ticker]?.preco??p.preco_medio)*p.unidades,0)
+  const ganhoTotal     = valorAtual - custoTotal
+  const ganhoPercent   = custoTotal>0?(ganhoTotal/custoTotal)*100:0
+  const positivo       = ganhoTotal>=0
 
-  /* Gráfico — evolução simples baseada nas datas de compra */
-  const evolucaoGrafico = (() => {
-    if (transacoes.length === 0) return []
-    const ordenadas = [...transacoes].sort((a,b)=>(a.data_compra??'')<(b.data_compra??'')?-1:1)
+  const totaisTipo: Record<string,number> = {}
+  let totalValorTipo = 0
+  for (const p of posicoes) {
+    const v = (cotacoes[p.ticker]?.preco??p.preco_medio)*p.unidades
+    totaisTipo[p.tipo] = (totaisTipo[p.tipo]??0)+v
+    totalValorTipo += v
+  }
+  const CORES: Record<string,string> = {'ETF':'#1D9E75','Ação':'#378ADD','REIT':'#EF9F27'}
+  const alocacao = Object.entries(totaisTipo).map(([tipo,valor])=>({
+    nome:tipo+'s', valor:totalValorTipo>0?Math.round((valor/totalValorTipo)*100):0, cor:CORES[tipo]??'#D3D1C7'
+  }))
+
+  const evolucaoGrafico = (()=>{
+    if (transacoes.length===0) return []
+    const ord = [...transacoes].sort((a,b)=>(a.data_compra??'')<(b.data_compra??'')?-1:1)
     const pontos: {mes:string;investido:number;atual:number}[] = []
-    let investidoAcum = 0
-    const mesesVistos = new Set<string>()
-    for (const t of ordenadas) {
+    let acum = 0
+    const vistos = new Set<string>()
+    for (const t of ord) {
       if (!t.data_compra) continue
-      const d = new Date(t.data_compra)
-      const mes = d.toLocaleDateString('pt-PT',{month:'short',year:'2-digit'})
-      investidoAcum += t.unidades * t.preco_medio
-      if (!mesesVistos.has(mes)) {
-        mesesVistos.add(mes)
-        pontos.push({ mes, investido: Math.round(investidoAcum), atual: Math.round(investidoAcum) })
-      } else {
-        const ultimo = pontos[pontos.length-1]
-        if (ultimo) ultimo.investido = Math.round(investidoAcum)
-      }
+      const mes = new Date(t.data_compra).toLocaleDateString('pt-PT',{month:'short',year:'2-digit'})
+      acum += t.unidades*t.preco_medio
+      if (!vistos.has(mes)) { vistos.add(mes); pontos.push({mes,investido:Math.round(acum),atual:Math.round(acum)}) }
+      else if (pontos.length>0) { pontos[pontos.length-1].investido=Math.round(acum) }
     }
-    // Último ponto com valor atual real
-    if (pontos.length > 0) pontos[pontos.length-1].atual = Math.round(valorAtual)
+    if (pontos.length>0) pontos[pontos.length-1].atual=Math.round(valorAtual)
     return pontos
   })()
 
@@ -157,11 +160,10 @@ export default function Dashboard() {
 
       <div className="px-4 pt-4 space-y-3">
 
-        {/* Valor hero + gráfico */}
         <div className="bg-white rounded-2xl border border-stone-200 p-4">
           <p className="text-[12px] text-stone-500 mb-1">Valor atual da carteira</p>
           {carregando ? (
-            <div className="h-8 bg-stone-100 rounded-lg animate-pulse mb-2"/>
+            <div className="h-8 bg-stone-100 rounded-lg animate-pulse mb-4"/>
           ) : (
             <>
               <p className="text-[28px] font-bold text-stone-900 leading-none mb-1">{fmtEur(valorAtual)}</p>
@@ -173,11 +175,10 @@ export default function Dashboard() {
           )}
           <div className="flex gap-1 mb-3">
             {TIME_TABS.map(t=>(
-              <button key={t} className={`flex-1 text-[11px] py-[5px] rounded-md transition-colors
-                ${t==='Tudo'?'bg-brand-50 text-brand-800 font-medium':'text-stone-500 hover:bg-stone-50'}`}>{t}</button>
+              <button key={t} className={`flex-1 text-[11px] py-[5px] rounded-md transition-colors ${t==='Tudo'?'bg-brand-50 text-brand-800 font-medium':'text-stone-500 hover:bg-stone-50'}`}>{t}</button>
             ))}
           </div>
-          {evolucaoGrafico.length > 1 ? (
+          {evolucaoGrafico.length>1 ? (
             <ResponsiveContainer width="100%" height={90}>
               <AreaChart data={evolucaoGrafico} margin={{top:4,right:0,left:0,bottom:0}}>
                 <defs>
@@ -200,55 +201,29 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Métricas reais */}
         <div className="bg-white rounded-2xl border border-stone-200 p-4">
           <p className="text-[11px] font-medium text-stone-400 uppercase tracking-wider mb-3">Resumo</p>
           {carregando ? (
-            <div className="grid grid-cols-2 gap-2">
-              {[0,1,2,3].map(i=><div key={i} className="h-16 bg-stone-100 rounded-xl animate-pulse"/>)}
-            </div>
+            <div className="grid grid-cols-2 gap-2">{[0,1,2,3].map(i=><div key={i} className="h-16 bg-stone-100 rounded-xl animate-pulse"/>)}</div>
           ) : (
             <div className="grid grid-cols-2 gap-2">
               <MetricCard label="Total investido"  value={fmtEur(totalInvestido)}/>
-              <MetricCard label="Ganho total"       value={(positivo?'+':'')+fmtEur(ganhoTotal)} sub={(positivo?'+':'')+fmt(ganhoPercent)+'%'} green={positivo} red={!positivo}/>
+              <MetricCard label="Ganho total"       value={(positivo?'+':'')+fmtEur(ganhoTotal)} sub={(positivo?'+':'')+fmt(ganhoPercent)+'%'} green={positivo&&ganhoTotal!==0} red={!positivo}/>
               <MetricCard label="Posições abertas" value={String(posicoes.length)}/>
-              <MetricCard label="Valor atual"       value={fmtEur(valorAtual)} green={positivo}/>
+              <MetricCard label="Valor atual"       value={fmtEur(valorAtual)}/>
             </div>
           )}
         </div>
 
-        {/* Alocação real */}
-        {alocacao.length > 0 && (
+        {alocacao.length>0 && (
           <div className="bg-white rounded-2xl border border-stone-200 p-4">
             <p className="text-[11px] font-medium text-stone-400 uppercase tracking-wider mb-3">Alocação</p>
             <div className="flex items-center gap-4">
-              <div className="relative w-[72px] h-[72px] flex-shrink-0">
-                <svg viewBox="0 0 36 36" className="rotate-[-90deg]">
-  {alocacao.reduce<{ els: React.ReactElement[]; offset: number }>(
-    (acc, a) => {
-      const d = (a.valor / 100) * 100
-      acc.els.push(
-        <circle
-          key={a.nome}
-          cx="18" cy="18" r="15.9"
-          fill="none"
-          stroke={a.cor}
-          strokeWidth="4"
-          strokeDasharray={`${d} ${100 - d}`}
-          strokeDashoffset={-acc.offset}
-        />
-      )
-      acc.offset += d
-      return acc
-    },
-    { els: [], offset: 0 }
-  ).els}
-</svg>
-              </div>
+              <DonutChart dados={alocacao}/>
               <div className="flex flex-col gap-[5px]">
                 {alocacao.map(a=>(
                   <div key={a.nome} className="flex items-center gap-2 text-[12px]">
-                    <div className="w-2 h-2 rounded-full" style={{background:a.cor}}/>
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{background:a.cor}}/>
                     <span className="text-stone-600">{a.nome}</span>
                     <span className="font-medium text-stone-900 ml-auto">{a.valor}%</span>
                   </div>
@@ -258,7 +233,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Recomendações */}
         <div className="bg-white rounded-2xl border border-stone-200 p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -273,8 +247,7 @@ export default function Dashboard() {
           </div>
           {[...riscos.slice(0,1),...oportunidades.slice(0,1)].map(r=>(
             <button key={r.id} onClick={()=>router.push('/para-ti')}
-              className={`w-full text-left rounded-xl p-3 mb-2 last:mb-0 flex gap-3 items-start border
-                ${r.tipo==='risco'?'bg-amber-50 border-amber-200':'bg-brand-50 border-brand-100'}`}>
+              className={`w-full text-left rounded-xl p-3 mb-2 last:mb-0 flex gap-3 items-start border ${r.tipo==='risco'?'bg-amber-50 border-amber-200':'bg-brand-50 border-brand-100'}`}>
               <span className="text-[16px] mt-0.5">{r.tipo==='risco'?'⚠':'💡'}</span>
               <div>
                 <p className={`text-[12px] font-medium ${r.tipo==='risco'?'text-amber-800':'text-brand-800'}`}>{r.titulo}</p>
@@ -283,6 +256,7 @@ export default function Dashboard() {
             </button>
           ))}
         </div>
+
       </div>
     </div>
   )
