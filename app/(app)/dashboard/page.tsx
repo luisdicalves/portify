@@ -224,8 +224,26 @@ export default function Dashboard() {
             <div className="flex items-center gap-4">
               <div className="relative w-[72px] h-[72px] flex-shrink-0">
                 <svg viewBox="0 0 36 36" className="rotate-[-90deg]">
-                  {(()=>{ let o=0; return alocacao.map(a=>{ const d=(a.valor/100)*100; const el=<circle key={a.nome} cx="18" cy="18" r="15.9" fill="none" stroke={a.cor} strokeWidth="4" strokeDasharray={`${d} ${100-d}`} strokeDashoffset={-o}/>; o+=d; return el }) })()}
-                </svg>
+  {alocacao.reduce<{ els: React.ReactElement[]; offset: number }>(
+    (acc, a) => {
+      const d = (a.valor / 100) * 100
+      acc.els.push(
+        <circle
+          key={a.nome}
+          cx="18" cy="18" r="15.9"
+          fill="none"
+          stroke={a.cor}
+          strokeWidth="4"
+          strokeDasharray={`${d} ${100 - d}`}
+          strokeDashoffset={-acc.offset}
+        />
+      )
+      acc.offset += d
+      return acc
+    },
+    { els: [], offset: 0 }
+  ).els}
+</svg>
               </div>
               <div className="flex flex-col gap-[5px]">
                 {alocacao.map(a=>(
