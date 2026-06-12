@@ -9,7 +9,7 @@ type Tipo     = 'Ação' | 'ETF' | 'REIT'
 type Operacao = 'compra' | 'venda'
 type Filtro   = 'Todos' | 'ETFs' | 'Ações' | 'REITs'
 type Aba      = 'posicoes' | 'historico'
-type OrdemKey = 'ticker' | 'valor' | 'ganho_pct'
+type OrdemKey = 'ticker' | 'custo' | 'valor' | 'ganho_pct'
 type OrdemDir = 'asc' | 'desc'
 
 type Transacao = {
@@ -224,7 +224,7 @@ function PosicaoRow({ pos,cotacao,onApagar }: { pos:PosicaoAgregada;cotacao?:Cot
   return (
     <div className="px-3 py-3 border-b border-stone-100 last:border-0">
       <div className="flex items-center gap-2">
-        <span className="text-[17px] flex-shrink-0">{bandeira}</span>
+        <span className="text-[17px] w-[25px] flex-shrink-0">{bandeira}</span>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[13px] font-bold text-stone-900">{pos.ticker}</span>
@@ -346,6 +346,11 @@ export default function Portfolio() {
     if(!ordem) return 0
     const dir=ordem.dir==='asc'?1:-1
     if(ordem.key==='ticker') return a.ticker.localeCompare(b.ticker)*dir
+    if(ordem.key==='custo'){
+      const cA=a.preco_medio*a.unidades
+      const cB=b.preco_medio*b.unidades
+      return (cA-cB)*dir
+    }
     if(ordem.key==='valor'){
       const vA=(cotacoes[a.ticker]?.preco??a.preco_medio)*a.unidades
       const vB=(cotacoes[b.ticker]?.preco??b.preco_medio)*b.unidades
@@ -434,7 +439,9 @@ export default function Portfolio() {
               </div>
               <div className="flex items-center gap-0 flex-shrink-0">
                 <div className="w-[60px] text-right">
-                  <p className="text-[10px] font-medium text-stone-500 uppercase tracking-wide">Custo€</p>
+                  <button onClick={()=>toggleOrdem('custo')} className="text-[10px] font-medium text-stone-500 uppercase tracking-wide hover:text-brand-600 transition-colors">
+                    Custo€<SetaOrdem campo="custo" ordem={ordem}/>
+                  </button>
                 </div>
                 <div className="w-[64px] text-right">
                   <button onClick={()=>toggleOrdem('valor')} className="text-[10px] font-medium text-stone-500 uppercase tracking-wide hover:text-brand-600 transition-colors">
