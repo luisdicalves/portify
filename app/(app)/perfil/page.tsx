@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronRight, Settings, FileSpreadsheet, Link as LinkIcon,
   UserCog, ShieldCheck, Flame, Clock, Target, X, Check,
-  Upload, AlertCircle, CheckCircle } from 'lucide-react'
+  Upload, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { PageHeader } from '@/components/PageHeader'
 
@@ -451,8 +451,7 @@ export default function Perfil() {
               </div>
             </div>
           </div>
-          <ProfileRow icon={UserCog}     label="Dados pessoais" onClick={()=>setDialog('pessoais')}/>
-          <ProfileRow icon={ShieldCheck} label="Segurança"      value="PIN + Face ID"/>
+          <ProfileRow icon={UserCog} label="Dados pessoais" onClick={()=>setDialog('pessoais')}/>
         </div>
 
         <div className="bg-white rounded-2xl border border-stone-200 p-4">
