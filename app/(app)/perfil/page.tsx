@@ -3,8 +3,8 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronRight, Settings, FileSpreadsheet, Link as LinkIcon,
-  UserCog, ShieldCheck, Flame, Clock, Target, X, Check,
-  Upload, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react'
+  UserCog, Flame, Clock, Target, X, Check,
+  Upload, AlertCircle, CheckCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { PageHeader } from '@/components/PageHeader'
 
@@ -34,6 +34,7 @@ const OBJETIVO_LABELS: Record<string,string> = Object.fromEntries(OBJETIVO_OPTIO
 type PerfilData = {
   id: string; nome: string; apelido: string; email: string
   data_nascimento: string; risk: string; horizonte: string; objetivo: string
+  user_id_publico: string
 }
 
 /* ── Dialog base ── */
@@ -83,6 +84,7 @@ function DialogDadosPessoais({ perfil, onClose, onSave }: {
           { label:'Primeiro nome',      value:perfil.nome },
           { label:'Apelido',            value:perfil.apelido },
           { label:'Data de nascimento', value:formatarData(perfil.data_nascimento) },
+          { label:'ID de utilizador',   value: perfil.user_id_publico ? '@' + perfil.user_id_publico : '—' },
         ].map(f => (
           <div key={f.label}>
             <label className="block text-[12px] font-medium text-stone-400 mb-1.5">{f.label}</label>
@@ -384,7 +386,7 @@ export default function Perfil() {
     const { data:{session} } = await supabase.auth.getSession()
     if (!session?.user) { router.push('/login'); return }
     const { data } = await supabase.from('perfis')
-      .select('nome,apelido,data_nascimento,risk,horizonte,objetivo')
+      .select('nome,apelido,data_nascimento,risk,horizonte,objetivo,user_id_publico')
       .eq('id', session.user.id).single()
     setPerfil({
       id:              session.user.id,
@@ -394,7 +396,8 @@ export default function Perfil() {
       data_nascimento: data?.data_nascimento ?? session.user.user_metadata?.data_nascimento ?? '',
       risk:            data?.risk            ?? '',
       horizonte:       data?.horizonte       ?? '',
-      objetivo:        data?.objetivo        ?? '',
+      objetivo:         data?.objetivo        ?? '',
+      user_id_publico:  data?.user_id_publico  ?? '',
     })
     if (mostrarSpinner) setAtualizando(false)
   }
@@ -420,21 +423,7 @@ export default function Perfil() {
       {dialog==='objetivo'  && <DialogOpcoes title="Objetivo principal" options={OBJETIVO_OPTIONS} value={perfil.objetivo} campoDb="objetivo" onClose={()=>setDialog(null)} onSave={v=>setPerfil(p=>p?{...p,objetivo:v}:p)}/>}
       {dialog==='importar'  && <DialogImportar userId={perfil.id} onClose={()=>setDialog(null)}/>}
 
-      <PageHeader
-        title="Perfil"
-        right={
-          <div className="flex items-center gap-2">
-            <button onClick={() => carregar(true)} disabled={atualizando}
-              className="w-9 h-9 bg-stone-50 border border-stone-200 rounded-xl flex items-center justify-center active:bg-stone-100 transition-colors">
-              <RefreshCw size={16} strokeWidth={1.75} color="#5F5E5A" className={atualizando ? 'animate-spin' : ''}/>
-            </button>
-            <button onClick={()=>router.push('/definicoes')}
-              className="w-9 h-9 bg-stone-50 border border-stone-200 rounded-xl flex items-center justify-center">
-              <Settings size={18} strokeWidth={1.75} color="#5F5E5A"/>
-            </button>
-          </div>
-        }
-      />
+      <PageHeader title="Perfil" />
 
       <div className="px-4 pt-4 space-y-3">
         <div className="bg-white rounded-2xl border border-stone-200 p-4">
@@ -444,7 +433,7 @@ export default function Perfil() {
             </div>
             <div className="min-w-0">
               <p className="text-[17px] font-semibold text-stone-900">{perfil.nome} {perfil.apelido}</p>
-              <p className="text-[13px] text-stone-500 mb-2 truncate">{perfil.email}</p>
+              <p className="text-[13px] text-stone-500 mb-2 truncate">@{perfil.user_id_publico || perfil.email}</p>
               <div className="flex gap-2 flex-wrap">
                 {riskLabel!=='—'&&<span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-brand-50 text-brand-800">{riskLabel}</span>}
                 {horizLabel!=='—'&&<span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-800">{horizLabel}</span>}
