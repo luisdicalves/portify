@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, X, RefreshCw, Trash2, History, BarChart2, ChevronUp, ChevronDown } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { PageHeader } from '@/components/PageHeader'
 
 /* ─── Tipos ─── */
 type Tipo     = 'Ação' | 'ETF' | 'REIT'
@@ -383,14 +384,16 @@ export default function Portfolio() {
       )}
 
       {/* Top bar */}
-      <div className="bg-white px-5 pt-12 pb-3 border-b border-stone-100">
-        <div className="flex justify-between items-center mb-2">
-          <p className="text-[17px] font-semibold text-stone-900">Portfólio</p>
+      <PageHeader
+        title="Portfólio"
+        right={
           <button onClick={()=>setModalAberto(true)}
             className="flex items-center gap-1.5 bg-brand-50 border border-brand-100 rounded-full px-3 py-1.5 text-[12px] text-brand-800 font-medium active:scale-[0.97] transition-transform">
             <Plus size={13} strokeWidth={2.5}/>Adicionar
           </button>
-        </div>
+        }
+      />
+      <div className="bg-white px-5 border-b border-stone-100">
         {/* Abas */}
         <div className="flex gap-1 mb-2">
           {([['posicoes','posicoes',<BarChart2 size={12}/>,'Posições'],['historico','historico',<History size={12}/>,`Histórico`]] as any[]).map(([id,,icon,label])=>(

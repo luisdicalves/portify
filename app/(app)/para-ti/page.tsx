@@ -27,13 +27,14 @@ export default function ParaTi() {
   return (
     <div className="pb-2">
       {/* Top bar */}
-      <div className="bg-white px-5 pt-12 pb-3 flex justify-between items-center border-b border-stone-100">
-        <p className="text-[17px] font-semibold text-stone-900">Para ti</p>
-        <div className="bg-brand-50 border border-brand-100 rounded-full px-3 py-1
-          text-[12px] text-brand-800 font-medium">
-          {recomendacoes.length} recomendações
-        </div>
-      </div>
+      <PageHeader
+        title="Para ti"
+        right={
+          <div className="bg-brand-50 border border-brand-100 rounded-full px-3 py-1 text-[12px] text-brand-800 font-medium">
+            {recomendacoes.length} recomendações
+          </div>
+        }
+      />
 
       <div className="px-4 pt-4 space-y-3">
 

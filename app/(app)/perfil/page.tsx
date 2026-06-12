@@ -6,6 +6,7 @@ import { ChevronRight, Settings, FileSpreadsheet, Link as LinkIcon,
   UserCog, ShieldCheck, Flame, Clock, Target, X, Check,
   Upload, AlertCircle, CheckCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { PageHeader } from '@/components/PageHeader'
 
 /* ── Tipos ── */
 const RISK_OPTIONS = [
@@ -417,13 +418,15 @@ export default function Perfil() {
       {dialog==='objetivo'  && <DialogOpcoes title="Objetivo principal" options={OBJETIVO_OPTIONS} value={perfil.objetivo} campoDb="objetivo" onClose={()=>setDialog(null)} onSave={v=>setPerfil(p=>p?{...p,objetivo:v}:p)}/>}
       {dialog==='importar'  && <DialogImportar userId={perfil.id} onClose={()=>setDialog(null)}/>}
 
-      <div className="bg-white px-5 pt-12 pb-3 flex justify-between items-center border-b border-stone-100">
-        <p className="text-[17px] font-semibold text-stone-900">Perfil</p>
-        <button onClick={()=>router.push('/definicoes')}
-          className="w-9 h-9 bg-stone-50 border border-stone-200 rounded-xl flex items-center justify-center">
-          <Settings size={18} strokeWidth={1.75} color="#5F5E5A"/>
-        </button>
-      </div>
+      <PageHeader
+        title="Perfil"
+        right={
+          <button onClick={()=>router.push('/definicoes')}
+            className="w-9 h-9 bg-stone-50 border border-stone-200 rounded-xl flex items-center justify-center">
+            <Settings size={18} strokeWidth={1.75} color="#5F5E5A"/>
+          </button>
+        }
+      />
 
       <div className="px-4 pt-4 space-y-3">
         <div className="bg-white rounded-2xl border border-stone-200 p-4">

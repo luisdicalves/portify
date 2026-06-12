@@ -6,6 +6,7 @@ import { ArrowLeft, Globe, Euro, Sun, Bell, TrendingUp, Repeat, ArrowDown,
   Trophy, Lock, ScanFace, EyeOff, FileText, FileOutput, LogOut, Trash2,
   ChevronRight, AlertTriangle, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { PageHeader } from '@/components/PageHeader'
 
 function Toggle({ on, onToggle }: { on:boolean; onToggle:()=>void }) {
   return (
@@ -161,12 +162,7 @@ export default function Definicoes() {
         />
       )}
 
-      <div className="bg-white px-5 pt-12 pb-3 flex items-center gap-3 border-b border-stone-100">
-        <button onClick={() => router.back()} className="w-8 h-8 flex items-center justify-center">
-          <ArrowLeft size={20} strokeWidth={1.75} color="#888780"/>
-        </button>
-        <p className="text-[17px] font-semibold text-stone-900">Definições</p>
-      </div>
+      <PageHeader title="Definições" back />
 
       <div className="px-4 pt-4 space-y-3 pb-8">
 

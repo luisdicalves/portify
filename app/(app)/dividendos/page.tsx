@@ -18,9 +18,7 @@ export default function Dividendos() {
   return (
     <div className="pb-2">
       {/* Top bar */}
-      <div className="bg-white px-5 pt-12 pb-3 border-b border-stone-100">
-        <p className="text-[17px] font-semibold text-stone-900">Dividendos</p>
-      </div>
+      <PageHeader title="Dividendos" />
 
       <div className="px-4 pt-4 space-y-3">
 

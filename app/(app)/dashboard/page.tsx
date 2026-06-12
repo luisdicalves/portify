@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { Bell, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react'
+import { ChevronRight, TrendingUp, TrendingDown } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { recomendacoes } from '@/lib/mock-data'
+import { PageHeader } from '@/components/PageHeader'
 
 type Transacao = { ticker:string; unidades:number; preco_medio:number; tipo:string; data_compra?:string }
 type Cotacao   = { preco:number; variacaoPct:number; bandeira:string }
@@ -68,8 +69,6 @@ const TIME_TABS = ['1M','3M','6M','1A','Tudo']
 
 export default function Dashboard() {
   const router = useRouter()
-  const [nomeCompleto,  setNomeCompleto]  = useState('')
-  const [iniciais,      setIniciais]      = useState('...')
   const [transacoes,    setTransacoes]    = useState<Transacao[]>([])
   const [cotacoes,      setCotacoes]      = useState<Record<string,Cotacao>>({})
   const [carregando,    setCarregando]    = useState(true)
@@ -141,22 +140,7 @@ export default function Dashboard() {
 
   return (
     <div className="pb-2">
-      <div className="bg-white px-5 pt-12 pb-3 flex justify-between items-center border-b border-stone-100">
-        <div>
-          <p className="text-[12px] text-stone-500">Bom dia,</p>
-          <p className="text-[17px] font-semibold text-stone-900">{nomeCompleto||'...'}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button onClick={()=>router.push('/notificacoes')} className="relative w-9 h-9 flex items-center justify-center">
-            <Bell size={22} strokeWidth={1.75} color="#5F5E5A"/>
-            <span className="absolute top-0.5 right-0.5 w-[7px] h-[7px] bg-red-500 rounded-full"/>
-          </button>
-          <button onClick={()=>router.push('/perfil')}
-            className="w-9 h-9 rounded-full bg-brand-50 flex items-center justify-center text-[12px] font-semibold text-brand-800">
-            {iniciais}
-          </button>
-        </div>
-      </div>
+      <PageHeader greeting />
 
       <div className="px-4 pt-4 space-y-3">
 
