@@ -19,7 +19,7 @@ export default function ObjetivoPrincipal() {
     <Screen>
       
       <div className="flex-1 flex flex-col px-6 py-5">
-        <StepDots total={5} current={4} />
+        <StepDots total={7} current={5} />
         <ProgressBar pct={80} />
 
         <h2 className="text-[20px] font-semibold text-stone-900 mb-1">
@@ -44,7 +44,7 @@ export default function ObjetivoPrincipal() {
         <div className="mt-6">
           <BtnPrimary
             disabled={!data.objetivo}
-            onClick={() => router.push('/onboarding/quer-plano')}>
+            onClick={() => router.push('/onboarding/setores')}>
             Continuar
           </BtnPrimary>
         </div>

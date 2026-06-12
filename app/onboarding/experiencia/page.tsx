@@ -18,7 +18,7 @@ export default function Experiencia() {
     <Screen>
       
       <div className="flex-1 flex flex-col px-6 py-5">
-        <StepDots total={5} current={2} />
+        <StepDots total={7} current={3} />
         <ProgressBar pct={33} />
 
         <h2 className="text-[20px] font-semibold text-stone-900 mb-1">

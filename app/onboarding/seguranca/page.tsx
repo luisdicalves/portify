@@ -14,26 +14,27 @@ export default function Seguranca() {
 
   function pressNum(val: string) {
     if (val === 'del') { setPin(p => p.slice(0, -1)); return }
-    if (pin.length >= 4) return
+    if (pin.length >= 6) return
     const next = [...pin, val]
     setPin(next)
-    if (next.length === 4) setTimeout(() => router.push('/onboarding/experiencia'), 300)
+    if (next.length === 6) setTimeout(() => router.push('/onboarding/tipos-ativo'), 300)
   }
 
   return (
     <Screen>
       <div className="flex-1 flex flex-col px-6 py-5">
-        <StepDots total={5} current={1} />
+        <StepDots total={7} current={1} />
 
         <h2 className="text-[20px] font-semibold text-stone-900 mb-1">Segurança</h2>
         <p className="text-[13px] text-stone-500 mb-6 leading-relaxed">
-          Define um PIN de 4 dígitos para proteger o acesso.
+          Define um PIN de 6 dígitos para proteger o acesso.
         </p>
 
-        <div className="flex justify-center gap-3 mb-6">
-          {[0,1,2,3].map(i => (
+        {/* 6 dígitos */}
+        <div className="flex justify-center gap-2 mb-6">
+          {[0,1,2,3,4,5].map(i => (
             <div key={i}
-              className={`w-[52px] h-[58px] rounded-xl border flex items-center justify-center text-[22px] font-medium transition-all
+              className={`w-[42px] h-[52px] rounded-xl border flex items-center justify-center text-[22px] font-medium transition-all
                 ${pin.length > i
                   ? 'border-brand-400 bg-brand-50 text-brand-800'
                   : 'border-stone-200 bg-stone-50 text-stone-400'
