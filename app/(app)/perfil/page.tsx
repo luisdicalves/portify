@@ -375,29 +375,31 @@ function ProfileRow({ icon:Icon, label, value, onClick }: {
 /* ── Página ── */
 export default function Perfil() {
   const router  = useRouter()
-  const [perfil,  setPerfil]  = useState<PerfilData|null>(null)
-  const [dialog,  setDialog]  = useState<'pessoais'|'risco'|'horizonte'|'objetivo'|'importar'|null>(null)
+  const [perfil,     setPerfil]     = useState<PerfilData|null>(null)
+  const [dialog,     setDialog]     = useState<'pessoais'|'risco'|'horizonte'|'objetivo'|'importar'|null>(null)
+  const [atualizando, setAtualizando] = useState(false)
 
-  useEffect(() => {
-    async function carregar() {
-      const { data:{session} } = await supabase.auth.getSession()
-      if (!session?.user) { router.push('/login'); return }
-      const { data } = await supabase.from('perfis')
-        .select('nome,apelido,data_nascimento,risk,horizonte,objetivo')
-        .eq('id', session.user.id).single()
-      setPerfil({
-        id:              session.user.id,
-        nome:            data?.nome            ?? session.user.user_metadata?.nome    ?? '',
-        apelido:         data?.apelido         ?? session.user.user_metadata?.apelido ?? '',
-        email:           session.user.email    ?? '',
-        data_nascimento: data?.data_nascimento ?? session.user.user_metadata?.data_nascimento ?? '',
-        risk:            data?.risk            ?? '',
-        horizonte:       data?.horizonte       ?? '',
-        objetivo:        data?.objetivo        ?? '',
-      })
-    }
-    carregar()
-  }, [router])
+  async function carregar(mostrarSpinner=false) {
+    if (mostrarSpinner) setAtualizando(true)
+    const { data:{session} } = await supabase.auth.getSession()
+    if (!session?.user) { router.push('/login'); return }
+    const { data } = await supabase.from('perfis')
+      .select('nome,apelido,data_nascimento,risk,horizonte,objetivo')
+      .eq('id', session.user.id).single()
+    setPerfil({
+      id:              session.user.id,
+      nome:            data?.nome            ?? session.user.user_metadata?.nome    ?? '',
+      apelido:         data?.apelido         ?? session.user.user_metadata?.apelido ?? '',
+      email:           session.user.email    ?? '',
+      data_nascimento: data?.data_nascimento ?? session.user.user_metadata?.data_nascimento ?? '',
+      risk:            data?.risk            ?? '',
+      horizonte:       data?.horizonte       ?? '',
+      objetivo:        data?.objetivo        ?? '',
+    })
+    if (mostrarSpinner) setAtualizando(false)
+  }
+
+  useEffect(() => { carregar() }, [router])
 
   if (!perfil) return (
     <div className="min-h-screen bg-stone-50 flex items-center justify-center">
@@ -421,10 +423,16 @@ export default function Perfil() {
       <PageHeader
         title="Perfil"
         right={
-          <button onClick={()=>router.push('/definicoes')}
-            className="w-9 h-9 bg-stone-50 border border-stone-200 rounded-xl flex items-center justify-center">
-            <Settings size={18} strokeWidth={1.75} color="#5F5E5A"/>
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => carregar(true)} disabled={atualizando}
+              className="w-9 h-9 bg-stone-50 border border-stone-200 rounded-xl flex items-center justify-center active:bg-stone-100 transition-colors">
+              <RefreshCw size={16} strokeWidth={1.75} color="#5F5E5A" className={atualizando ? 'animate-spin' : ''}/>
+            </button>
+            <button onClick={()=>router.push('/definicoes')}
+              className="w-9 h-9 bg-stone-50 border border-stone-200 rounded-xl flex items-center justify-center">
+              <Settings size={18} strokeWidth={1.75} color="#5F5E5A"/>
+            </button>
+          </div>
         }
       />
 
