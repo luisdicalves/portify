@@ -2,18 +2,20 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Delete, Fingerprint, ScanFace } from 'lucide-react'
+import { Delete, ScanFace } from 'lucide-react'
 import { Screen, StepDots } from '@/components/ui'
 
-const NUMPAD = ['1','2','3','4','5','6','7','8','9','','0','del']
+// Linha de baixo: bio | 0 | del
+const NUMPAD_KEYS = ['1','2','3','4','5','6','7','8','9','bio','0','del']
 
 export default function Seguranca() {
   const router = useRouter()
   const [pin, setPin] = useState<string[]>([])
-  const [bio, setBio] = useState<'face'|'touch'|null>(null)
+  const [bio, setBio] = useState(false)
 
   function pressNum(val: string) {
     if (val === 'del') { setPin(p => p.slice(0, -1)); return }
+    if (val === 'bio')  { setBio(v => !v); return }
     if (pin.length >= 6) return
     const next = [...pin, val]
     setPin(next)
@@ -30,7 +32,7 @@ export default function Seguranca() {
           Define um PIN de 6 dígitos para proteger o acesso.
         </p>
 
-        {/* 6 dígitos */}
+        {/* PIN dots */}
         <div className="flex justify-center gap-2 mb-6">
           {[0,1,2,3,4,5].map(i => (
             <div key={i}
@@ -44,37 +46,22 @@ export default function Seguranca() {
           ))}
         </div>
 
-        <div className="grid grid-cols-3 gap-2 mb-6">
-          {NUMPAD.map((key, i) => (
-            key === '' ? <div key={i} /> :
+        {/* Numpad */}
+        <div className="grid grid-cols-3 gap-2">
+          {NUMPAD_KEYS.map((key, i) => (
             <button key={i}
               onClick={() => pressNum(key)}
-              className="bg-stone-50 border border-stone-200 rounded-xl py-[13px] flex items-center justify-center
-                text-[20px] font-medium text-stone-900 active:bg-stone-100 transition-colors">
-              {key === 'del' ? <Delete size={18} color="#888780" /> : key}
-            </button>
-          ))}
-        </div>
-
-        <p className="text-[11px] font-medium text-stone-400 uppercase tracking-wider mb-3">
-          Biometria (opcional)
-        </p>
-        <div className="flex gap-3">
-          {([
-            { id: 'face',  label: 'Face ID',  Icon: ScanFace    },
-            { id: 'touch', label: 'Touch ID', Icon: Fingerprint },
-          ] as const).map(({ id, label, Icon }) => (
-            <button key={id}
-              onClick={() => setBio(bio === id ? null : id)}
-              className={`flex-1 rounded-xl border py-[13px] flex flex-col items-center gap-2 transition-all
-                ${bio === id
-                  ? 'bg-brand-50 border-brand-400'
-                  : 'bg-stone-50 border-stone-200 active:bg-stone-100'
+              className={`rounded-xl py-[13px] flex items-center justify-center transition-colors
+                text-[20px] font-medium
+                ${key === 'bio'
+                  ? bio
+                    ? 'bg-brand-50 border border-brand-400 text-brand-800'
+                    : 'bg-stone-50 border border-stone-200 text-stone-500 active:bg-stone-100'
+                  : 'bg-stone-50 border border-stone-200 text-stone-900 active:bg-stone-100'
                 }`}>
-              <Icon size={22} color={bio === id ? '#1D9E75' : '#888780'} strokeWidth={1.5} />
-              <span className={`text-[12px] ${bio === id ? 'text-brand-800 font-medium' : 'text-stone-500'}`}>
-                {label}
-              </span>
+              {key === 'del' && <Delete size={18} color="#888780" />}
+              {key === 'bio' && <ScanFace size={20} color={bio ? '#1D9E75' : '#888780'} strokeWidth={1.5} />}
+              {key !== 'del' && key !== 'bio' && key}
             </button>
           ))}
         </div>
