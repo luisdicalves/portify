@@ -10,7 +10,7 @@ type Transacao = {
   id: string; ticker: string; nome: string; tipo: string
   unidades: number; preco_medio: number; moeda: string; data_compra?: string
 }
-type PosicaoAgregada = { ticker: string; unidades: number; preco_medio: number; moeda: string }
+type PosicaoAgregada = { ticker: string; tipo: string; unidades: number; preco_medio: number; moeda: string }
 type DadosDividendo = {
   ticker: string; nome: string; dividendRate: number; dividendYield: number
   exDividendDate: string | null; dividendDate: string | null; moeda: string
@@ -18,6 +18,21 @@ type DadosDividendo = {
 }
 
 const MESES_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+
+function getBandeira(ticker: string): string {
+  const t = ticker.toUpperCase()
+  if (t.endsWith('.DE')) return '🇩🇪'
+  if (t.endsWith('.PA')) return '🇫🇷'
+  if (t.endsWith('.AS')) return '🇳🇱'
+  if (t.endsWith('.MI')) return '🇮🇹'
+  if (t.endsWith('.MC')) return '🇪🇸'
+  if (t.endsWith('.L'))  return '🇬🇧'
+  if (t.endsWith('.T'))  return '🇯🇵'
+  if (t.endsWith('.LS')) return '🇵🇹'
+  if (t.endsWith('.SW')) return '🇨🇭'
+  if (['VWCE','CSPX','IWDA','EIMI','IUSQ','VUSA','VUAA'].includes(t.split('.')[0])) return '🇮🇪'
+  return '🇺🇸'
+}
 
 function fmt(n: number) {
   return n.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
@@ -28,7 +43,7 @@ function agregarPosicoes(transacoes: Transacao[]): PosicaoAgregada[] {
   for (const t of transacoes) {
     const ex = mapa.get(t.ticker)
     if (!ex) {
-      mapa.set(t.ticker, { ticker: t.ticker, unidades: t.unidades, preco_medio: t.preco_medio, moeda: t.moeda })
+      mapa.set(t.ticker, { ticker: t.ticker, tipo: t.tipo, unidades: t.unidades, preco_medio: t.preco_medio, moeda: t.moeda })
     } else {
       const novas = ex.unidades + t.unidades
       if (novas <= 0) { mapa.delete(t.ticker) }
@@ -45,7 +60,8 @@ export default function Dividendos() {
   const router = useRouter()
   const [posicoes,    setPosicoes]    = useState<PosicaoAgregada[]>([])
   const [dividendos,  setDividendos]  = useState<Record<string, DadosDividendo>>({})
-  const [carregando,  setCarregando]  = useState(true)
+  const [carregando,      setCarregando]      = useState(true)
+  const [mostrarTodas,    setMostrarTodas]    = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -80,7 +96,7 @@ export default function Dividendos() {
   const dividendoAnualPorPosicao = posicoes.map(p => {
     const d = dividendos[p.ticker]
     const anual = d ? d.dividendRate * p.unidades : 0
-    return { ticker: p.ticker, nome: d?.nome ?? p.ticker, anual, dadosDiv: d, unidades: p.unidades }
+    return { ticker: p.ticker, nome: d?.nome ?? p.ticker, tipo: p.tipo, anual, dadosDiv: d, unidades: p.unidades }
   })
 
   const custoTotal = posicoes.reduce((s, p) => s + p.preco_medio * p.unidades, 0)
@@ -88,13 +104,13 @@ export default function Dividendos() {
   const yieldOnCost = custoTotal > 0 ? (totalAnualEstimado / custoTotal) * 100 : 0
 
   // Lista de pagamentos históricos reais (por posição), escalados pelas unidades atuais
-  type PagamentoHistorico = { ticker: string; nome: string; data: Date; valor: number }
+  type PagamentoHistorico = { ticker: string; nome: string; tipo: string; data: Date; valor: number }
   const pagamentosHistoricos: PagamentoHistorico[] = []
   for (const p of dividendoAnualPorPosicao) {
     if (!p.dadosDiv?.historico) continue
     for (const h of p.dadosDiv.historico) {
       pagamentosHistoricos.push({
-        ticker: p.ticker, nome: p.nome, data: new Date(h.data), valor: h.valor * p.unidades,
+        ticker: p.ticker, nome: p.nome, tipo: p.tipo, data: new Date(h.data), valor: h.valor * p.unidades,
       })
     }
   }
@@ -155,11 +171,11 @@ export default function Dividendos() {
   const proximosPagamentos = pagamentosProjetados.slice(0, 5)
 
   /* ─── Lista de ações que já deram dividendos, com total recebido por ticker ─── */
-  const totalPorTicker = new Map<string, { ticker: string; nome: string; total: number; numPagamentos: number }>()
+  const totalPorTicker = new Map<string, { ticker: string; nome: string; tipo: string; total: number; numPagamentos: number }>()
   for (const p of pagamentosHistoricos) {
     const ex = totalPorTicker.get(p.ticker)
     if (ex) { ex.total += p.valor; ex.numPagamentos += 1 }
-    else totalPorTicker.set(p.ticker, { ticker: p.ticker, nome: p.nome, total: p.valor, numPagamentos: 1 })
+    else totalPorTicker.set(p.ticker, { ticker: p.ticker, nome: p.nome, tipo: p.tipo, total: p.valor, numPagamentos: 1 })
   }
   const listaAcoesComDividendos = Array.from(totalPorTicker.values()).sort((a, b) => b.total - a.total)
 
@@ -237,23 +253,38 @@ export default function Dividendos() {
                 <p className="text-[11px] font-medium text-stone-400 uppercase tracking-wider mb-3">
                   Ações com dividendos recebidos
                 </p>
-                {listaAcoesComDividendos.map((a, i) => (
+                {(mostrarTodas ? listaAcoesComDividendos : listaAcoesComDividendos.slice(0, 3)).map((a, i, arr) => (
                   <div key={a.ticker}
                     className={`flex items-center gap-3 py-3
-                      ${i < listaAcoesComDividendos.length - 1 ? 'border-b border-stone-100' : ''}`}>
-                    <div className="w-9 h-9 rounded-[9px] bg-stone-50 border border-stone-200
-                      flex items-center justify-center text-[10px] font-semibold text-stone-600 flex-shrink-0">
-                      {a.ticker.slice(0, 4)}
+                      ${i < arr.length - 1 ? 'border-b border-stone-100' : ''}`}>
+                    <div className="w-10 h-10 rounded-[10px] bg-stone-50 border border-stone-200
+                      flex items-center justify-center text-[16px] flex-shrink-0">
+                      {getBandeira(a.ticker)}
                     </div>
-                    <div className="flex-1">
-                      <p className="text-[13px] font-medium text-stone-900">{a.nome}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-[13px] font-semibold text-stone-900 truncate">{a.nome}</p>
+                        <span className="text-[10px] font-medium px-2 py-[2px] rounded-full bg-stone-100 text-stone-500 flex-shrink-0">{a.tipo}</span>
+                      </div>
+                      <p className="text-[11px] text-stone-400 truncate">{a.ticker}</p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-[14px] font-semibold text-brand-600">+{fmt(a.total)}</p>
                       <p className="text-[11px] text-stone-400">
                         {a.numPagamentos} pagamento{a.numPagamentos > 1 ? 's' : ''}
                       </p>
                     </div>
-                    <p className="text-[14px] font-semibold text-brand-600">+{fmt(a.total)}</p>
                   </div>
                 ))}
+                {listaAcoesComDividendos.length > 3 && (
+                  <button
+                    onClick={() => setMostrarTodas(v => !v)}
+                    className="w-full text-center text-[12px] text-brand-600 font-medium pt-3 mt-1 border-t border-stone-100">
+                    {mostrarTodas
+                      ? 'Mostrar menos'
+                      : `Mostrar mais ${listaAcoesComDividendos.length - 3} ação${listaAcoesComDividendos.length - 3 > 1 ? 'ões' : ''}`}
+                  </button>
+                )}
               </div>
             )}
 
