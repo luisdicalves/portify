@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { ChevronRight, TrendingUp, TrendingDown } from 'lucide-react'
@@ -64,13 +64,16 @@ function MetricCard({ label,value,sub,green,red }: {label:string;value:string;su
   )
 }
 
-const TIME_TABS = ['1M','3M','6M','1A','Tudo']
+const TIME_TABS = ['1D','1S','1M','3M','6M','1A','Tudo']
 
 export default function Dashboard() {
   const router = useRouter()
   const [transacoes,    setTransacoes]    = useState<Transacao[]>([])
   const [cotacoes,      setCotacoes]      = useState<Record<string,Cotacao>>({})
   const [carregando,    setCarregando]    = useState(true)
+  const [tabAtiva,      setTabAtiva]      = useState('Tudo')
+  const [dadosGrafico,  setDadosGrafico]  = useState<{label:string;valor:number}[]>([])
+  const [loadGrafico,   setLoadGrafico]   = useState(false)
   const riscos        = recomendacoes.filter(r=>r.tipo==='risco')
   const oportunidades = recomendacoes.filter(r=>r.tipo==='oportunidade')
 
@@ -117,22 +120,39 @@ export default function Dashboard() {
     nome:tipo+'s', valor:totalValorTipo>0?Math.round((valor/totalValorTipo)*100):0, cor:CORES[tipo]??'#D3D1C7'
   }))
 
-  const evolucaoGrafico = (()=>{
-    if (transacoes.length===0) return []
-    const ord = [...transacoes].sort((a,b)=>(a.data_compra??'')<(b.data_compra??'')?-1:1)
-    const pontos: {mes:string;investido:number;atual:number}[] = []
-    let acum = 0
-    const vistos = new Set<string>()
-    for (const t of ord) {
-      if (!t.data_compra) continue
-      const mes = new Date(t.data_compra).toLocaleDateString('pt-PT',{month:'short',year:'2-digit'})
-      acum += t.unidades*t.preco_medio
-      if (!vistos.has(mes)) { vistos.add(mes); pontos.push({mes,investido:Math.round(acum),atual:Math.round(acum)}) }
-      else if (pontos.length>0) { pontos[pontos.length-1].investido=Math.round(acum) }
-    }
-    if (pontos.length>0) pontos[pontos.length-1].atual=Math.round(valorAtual)
-    return pontos
-  })()
+  const buscarGrafico = useCallback(async (tab: string, posicoes: {ticker:string;preco_medio:number;unidades:number}[], cotacoesAtuais: Record<string,{preco:number}>) => {
+    if (posicoes.length === 0) { setDadosGrafico([]); return }
+    setLoadGrafico(true)
+    try {
+      // Buscar histórico do ticker com maior peso
+      const principal = [...posicoes].sort((a,b) =>
+        (cotacoesAtuais[b.ticker]?.preco ?? b.preco_medio) * b.unidades -
+        (cotacoesAtuais[a.ticker]?.preco ?? a.preco_medio) * a.unidades
+      )[0]
+      const r = await fetch(`/api/historico?ticker=${encodeURIComponent(principal.ticker)}&tab=${tab}`)
+      if (!r.ok) { setLoadGrafico(false); return }
+      const { pontos } = await r.json()
+      if (!pontos?.length) { setLoadGrafico(false); return }
+
+      // Escalar os pontos para o valor total do portfólio
+      const valorPrincipal = (cotacoesAtuais[principal.ticker]?.preco ?? principal.preco_medio) * principal.unidades
+      const valorTotal = posicoes.reduce((s,p) => s + (cotacoesAtuais[p.ticker]?.preco ?? p.preco_medio) * p.unidades, 0)
+      const escala = valorTotal > 0 && valorPrincipal > 0 ? valorTotal / valorPrincipal : 1
+
+      const precoBase = pontos[0].preco
+      const dados = pontos.map((p:{label:string;preco:number}) => ({
+        label: p.label,
+        valor: Math.round(p.preco * principal.unidades * escala * 100) / 100,
+      }))
+      setDadosGrafico(dados)
+    } catch { }
+    setLoadGrafico(false)
+  }, [])
+
+  useEffect(() => {
+    const pos = agregarPosicoes(transacoes)
+    if (pos.length > 0) buscarGrafico(tabAtiva, pos, cotacoes)
+  }, [tabAtiva, transacoes, cotacoes, buscarGrafico])
 
   return (
     <div className="pb-2">
@@ -155,30 +175,58 @@ export default function Dashboard() {
           )}
           <div className="flex gap-1 mb-3">
             {TIME_TABS.map(t=>(
-              <button key={t} className={`flex-1 text-[11px] py-[5px] rounded-md transition-colors ${t==='Tudo'?'bg-brand-50 text-brand-800 font-medium':'text-stone-500 hover:bg-stone-50'}`}>{t}</button>
+              <button key={t} onClick={()=>setTabAtiva(t)}
+                className={`flex-1 text-[11px] py-[5px] rounded-md transition-colors
+                  ${tabAtiva===t?'bg-brand-50 text-brand-800 font-medium':'text-stone-500 active:bg-stone-50'}`}>
+                {t}
+              </button>
             ))}
           </div>
-          {evolucaoGrafico.length>1 ? (
-            <ResponsiveContainer width="100%" height={90}>
-              <AreaChart data={evolucaoGrafico} margin={{top:4,right:0,left:0,bottom:0}}>
-                <defs>
-                  <linearGradient id="gradAtual" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#1D9E75" stopOpacity={0.15}/>
-                    <stop offset="95%" stopColor="#1D9E75" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="mes" hide/>
-                <YAxis domain={['dataMin - 100','dataMax + 100']} hide/>
-                <Tooltip contentStyle={{fontSize:11,borderRadius:8,border:'0.5px solid #E8E6E0'}} formatter={(v:number)=>[fmtEur(v),'']}/>
-                <Area type="monotone" dataKey="investido" stroke="#D3D1C7" strokeWidth={1} strokeDasharray="4 3" fill="none" dot={false}/>
-                <Area type="monotone" dataKey="atual"     stroke="#1D9E75" strokeWidth={2} fill="url(#gradAtual)" dot={false}/>
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-[90px] flex items-center justify-center">
-              <p className="text-[12px] text-stone-400">Adiciona posições para ver o gráfico</p>
-            </div>
-          )}
+          {(() => {
+            const varPeriodo = dadosGrafico.length > 1
+              ? dadosGrafico[dadosGrafico.length-1].valor - dadosGrafico[0].valor : 0
+            const varPct = dadosGrafico.length > 1 && dadosGrafico[0].valor > 0
+              ? (varPeriodo / dadosGrafico[0].valor) * 100 : 0
+            const pos = varPeriodo >= 0
+            return dadosGrafico.length > 1 ? (
+              <>
+                {!carregando && (
+                  <div className={`text-[11px] mb-2 font-medium ${pos?'text-brand-600':'text-red-500'}`}>
+                    {pos?'+':''}{fmtEur(varPeriodo)} ({pos?'+':''}{fmt(varPct)}%) no período
+                  </div>
+                )}
+                {loadGrafico ? (
+                  <div className="h-[90px] bg-stone-50 rounded-xl animate-pulse"/>
+                ) : (
+                  <ResponsiveContainer width="100%" height={90}>
+                    <AreaChart data={dadosGrafico} margin={{top:4,right:0,left:0,bottom:0}}>
+                      <defs>
+                        <linearGradient id="gradAtual" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%"  stopColor={pos?"#1D9E75":"#EF4444"} stopOpacity={0.15}/>
+                          <stop offset="95%" stopColor={pos?"#1D9E75":"#EF4444"} stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="label" hide/>
+                      <YAxis domain={['dataMin - 100','dataMax + 100']} hide/>
+                      <Tooltip
+                        contentStyle={{fontSize:11,borderRadius:8,border:'0.5px solid #E8E6E0',padding:'4px 8px'}}
+                        formatter={(v:number)=>[fmtEur(v),'']}
+                        labelStyle={{color:'#888780',fontSize:10}}
+                      />
+                      <Area type="monotone" dataKey="valor" stroke={pos?"#1D9E75":"#EF4444"} strokeWidth={2} fill="url(#gradAtual)" dot={false}/>
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
+              </>
+            ) : (
+              <div className="h-[90px] flex items-center justify-center">
+                {loadGrafico
+                  ? <div className="h-[90px] w-full bg-stone-50 rounded-xl animate-pulse"/>
+                  : <p className="text-[12px] text-stone-400">Adiciona posições para ver o gráfico</p>
+                }
+              </div>
+            )
+          })()}
         </div>
 
         <div className="bg-white rounded-2xl border border-stone-200 p-4">
