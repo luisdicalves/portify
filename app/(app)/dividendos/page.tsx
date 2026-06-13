@@ -88,23 +88,49 @@ export default function Dividendos() {
   const totalMensalMedio = totalAnual / 12
   const yieldOnCost = custoTotal > 0 ? (totalAnual / custoTotal) * 100 : 0
 
-  /* ─── Previsão mensal (distribuição uniforme do anual por 12 meses) ─── */
-  const previsaoMensal = MESES_PT.map(mes => ({ mes, val: Math.round(totalMensalMedio * 100) / 100 }))
+  /* ─── Projeção de pagamentos futuros (12 meses), com base na cadência real de cada ticker ───
+     Para cada posição com dividendDate estimada, projeta pagamentos repetindo de
+     ~3 em 3 meses (cadência trimestral típica) durante os próximos 12 meses.
+     Estes pagamentos são a fonte única tanto da Previsão mensal como dos Próximos pagamentos,
+     garantindo coerência entre os dois blocos. */
+  const hoje = new Date()
+  const horizonteFim = new Date(hoje.getFullYear(), hoje.getMonth() + 12, hoje.getDate())
+
+  type PagamentoProjetado = { ticker: string; nome: string; data: Date; valor: number }
+  const pagamentosProjetados: PagamentoProjetado[] = []
+
+  for (const p of dividendoAnualPorPosicao) {
+    if (!p.dadosDiv?.dividendDate || p.anual <= 0) continue
+    const posicao = posicoes.find(x => x.ticker === p.ticker)!
+    const valorPorPagamento = p.dadosDiv.dividendRate / 4 * posicao.unidades // trimestral típico
+
+    let dataPagamento = new Date(p.dadosDiv.dividendDate)
+    // recuar até à primeira ocorrência futura/atual a partir de hoje
+    while (dataPagamento < new Date(hoje.getFullYear(), hoje.getMonth(), 1)) {
+      dataPagamento = new Date(dataPagamento.getFullYear(), dataPagamento.getMonth() + 3, dataPagamento.getDate())
+    }
+    // gerar ocorrências trimestrais até ao fim do horizonte
+    while (dataPagamento <= horizonteFim) {
+      pagamentosProjetados.push({
+        ticker: p.ticker, nome: p.nome, data: new Date(dataPagamento), valor: valorPorPagamento,
+      })
+      dataPagamento = new Date(dataPagamento.getFullYear(), dataPagamento.getMonth() + 3, dataPagamento.getDate())
+    }
+  }
+  pagamentosProjetados.sort((a, b) => a.data.getTime() - b.data.getTime())
+
+  /* ─── Previsão mensal: soma dos pagamentos projetados por mês (12 meses a partir de hoje) ─── */
+  const previsaoMensal = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1)
+    const total = pagamentosProjetados
+      .filter(p => p.data.getFullYear() === d.getFullYear() && p.data.getMonth() === d.getMonth())
+      .reduce((s, p) => s + p.valor, 0)
+    return { mes: MESES_PT[d.getMonth()], val: Math.round(total * 100) / 100 }
+  })
   const maxVal = Math.max(...previsaoMensal.map(d => d.val), 1)
 
-  /* ─── Próximos pagamentos: tickers com dividendDate futura, ordenados ─── */
-  const hoje = new Date()
-  const proximosPagamentos = dividendoAnualPorPosicao
-    .filter(p => p.dadosDiv?.dividendDate)
-    .map(p => {
-      const data = new Date(p.dadosDiv!.dividendDate!)
-      const posicao = posicoes.find(x => x.ticker === p.ticker)!
-      const valorEstimado = p.dadosDiv!.dividendRate / 4 * posicao.unidades // trimestral típico
-      return { ticker: p.ticker, nome: p.nome, data, valor: valorEstimado }
-    })
-    .filter(p => p.data >= new Date(hoje.getFullYear(), hoje.getMonth(), 1))
-    .sort((a, b) => a.data.getTime() - b.data.getTime())
-    .slice(0, 5)
+  /* ─── Próximos pagamentos: primeiras ocorrências projetadas ─── */
+  const proximosPagamentos = pagamentosProjetados.slice(0, 5)
 
   /* ─── Calendário do mês ─── */
   const ano = mesAtual.getFullYear()
@@ -195,14 +221,14 @@ export default function Dividendos() {
             </div>
 
             {/* Previsão mensal */}
-            {totalAnual > 0 && (
+            {pagamentosProjetados.length > 0 && (
               <div className="bg-white rounded-2xl border border-stone-200 p-4">
                 <p className="text-[11px] font-medium text-stone-400 uppercase tracking-wider mb-3">
-                  Previsão mensal (estimativa)
+                  Previsão mensal (próximos 12 meses)
                 </p>
                 <div className="space-y-[6px]">
-                  {previsaoMensal.map(d => (
-                    <div key={d.mes} className="flex items-center gap-3">
+                  {previsaoMensal.map((d, i) => (
+                    <div key={`${d.mes}-${i}`} className="flex items-center gap-3">
                       <p className="text-[11px] text-stone-500 w-7">{d.mes}</p>
                       <div className="flex-1 h-[13px] bg-stone-100 rounded-full overflow-hidden">
                         <div
@@ -215,8 +241,8 @@ export default function Dividendos() {
                   ))}
                 </div>
                 <p className="text-[10px] text-stone-400 mt-3">
-                  Estimativa baseada no dividendo anual atual dividido por 12. Os pagamentos reais podem
-                  concentrar-se em meses específicos.
+                  Projeção com base na cadência de pagamentos trimestrais de cada posição. Os valores
+                  e datas reais podem variar ligeiramente.
                 </p>
               </div>
             )}
