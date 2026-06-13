@@ -276,16 +276,32 @@ export default function Definicoes() {
     setLoadingDelete(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user) return
+      if (!session) { setLoadingDelete(false); return }
 
-      // Apagar dados do utilizador nas tabelas
-      await supabase.from('posicoes').delete().eq('user_id', session.user.id)
-      await supabase.from('perfis').delete().eq('id', session.user.id)
+      // Chamar Edge Function que apaga posicoes + perfis + auth.users
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/delete-account`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      )
 
-      // Terminar sessão e redirecionar
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        console.error('Erro ao eliminar conta:', err)
+        setLoadingDelete(false)
+        return
+      }
+
+      // Terminar sessão local e redirecionar
       await supabase.auth.signOut()
       router.push('/')
-    } catch {
+    } catch (e) {
+      console.error(e)
       setLoadingDelete(false)
     }
   }

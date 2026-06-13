@@ -13,7 +13,9 @@ interface OnboardingData {
   userId:       string
   nome:         string
   apelido:      string
+  dataNasc:     string
   email:        string
+  password:     string   // guardado apenas em memória, nunca persistido
   experience:   Experience  | null
   risk:         RiskProfile | null
   objetivo:     Objetivo    | null
@@ -35,7 +37,9 @@ const defaults: OnboardingData = {
   userId:       '',
   nome:         '',
   apelido:      '',
+  dataNasc:     '',
   email:        '',
+  password:     '',
   experience:   null,
   risk:         null,
   objetivo:     null,

@@ -60,7 +60,8 @@ function ToastSucesso({ onDone }: { onDone: () => void }) {
 export default function Pronto() {
   const router = useRouter()
   const { data } = useOnboarding()
-  const [loading,    setLoading]    = useState(false)
+  const [loading,      setLoading]      = useState(false)
+  const [erro,         setErro]         = useState('')
   const [mostrarToast, setMostrarToast] = useState(false)
 
   const risk      = data.risk      ?? 'arrojado'
@@ -71,7 +72,7 @@ export default function Pronto() {
   const max = data.querPlano ? calcFV(data.investEuros, anos, tMax) : 0
 
   const SUMARIO = [
-    ['ID', `@${data.userId || '—'}`],
+    ['ID',          `@${data.userId || '—'}`],
     ['Experiência', EXPERIENCE_LABELS[data.experience ?? ''] ?? '—'],
     ['Perfil',      RISK_LABELS[risk] ?? '—'],
     ['Objetivo',    OBJETIVO_LABELS[data.objetivo ?? ''] ?? '—'],
@@ -85,31 +86,59 @@ export default function Pronto() {
   ]
 
   async function finalizar() {
+    setErro('')
     setLoading(true)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.user) {
-        await supabase.from('perfis').upsert({
-          id:           session.user.id,
-          nome:         data.nome,
-          apelido:      data.apelido,
-          experience:   data.experience,
-          risk:         data.risk,
-          objetivo:     data.objetivo,
-          quer_plano:   data.querPlano,
-          meta_euros:   data.metaEuros,
-          invest_euros: data.investEuros,
-          periodo:      data.periodo,
-          horizonte:    data.horizonte,
-          tipos_ativo:  data.tiposAtivo,
-          setores:      data.setores,
-        })
+      // 1. Criar conta no Supabase Auth
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email:    data.email,
+        password: data.password,
+        options:  { data: { nome: data.nome, apelido: data.apelido, data_nascimento: data.dataNasc } },
+      })
+
+      if (signUpError) {
+        if (signUpError.message.includes('already registered') || signUpError.message.includes('already been registered')) {
+          setErro('Já existe uma conta com este email. Faz login.')
+        } else {
+          setErro(signUpError.message)
+        }
+        return
       }
+
+      const user = authData.user
+      if (!user) { setErro('Erro ao criar conta. Tenta novamente.'); return }
+
+      // 2. Guardar perfil completo na base de dados
+      const { error: dbError } = await supabase.from('perfis').upsert({
+        id:              user.id,
+        nome:            data.nome,
+        apelido:         data.apelido,
+        data_nascimento: data.dataNasc,
+        user_id_publico: data.userId,
+        experience:      data.experience,
+        risk:            data.risk,
+        objetivo:        data.objetivo,
+        quer_plano:      data.querPlano,
+        meta_euros:      data.metaEuros,
+        invest_euros:    data.investEuros,
+        periodo:         data.periodo,
+        horizonte:       data.horizonte,
+        tipos_ativo:     data.tiposAtivo,
+        setores:         data.setores,
+      })
+
+      if (dbError) {
+        console.error('DB error:', dbError)
+        // Conta criada mas perfil falhou — avança na mesma, dados podem ser completados depois
+      }
+
+      // 3. Mostrar toast e redirecionar
       setMostrarToast(true)
-      setTimeout(() => router.push('/dashboard'), 2000)
+      setTimeout(() => router.push('/dashboard'), 2500)
+
     } catch (e) {
       console.error(e)
-      router.push('/dashboard')
+      setErro('Ocorreu um erro inesperado. Tenta novamente.')
     } finally {
       setLoading(false)
     }
@@ -142,7 +171,8 @@ export default function Pronto() {
             A tua conta está pronta. Podes definir um plano a qualquer momento.
           </p>
         )}
-        <div className="w-full bg-brand-50 border border-brand-100 rounded-2xl p-4 mb-8 text-left">
+
+        <div className="w-full bg-brand-50 border border-brand-100 rounded-2xl p-4 mb-6 text-left">
           {SUMARIO.map(([label, value], i) => (
             <div key={label}
               className={`flex justify-between items-start py-[6px] text-[13px] gap-3
@@ -152,8 +182,15 @@ export default function Pronto() {
             </div>
           ))}
         </div>
+
+        {erro && (
+          <p className="text-[12px] text-red-500 bg-red-50 border border-red-100 rounded-xl px-4 py-3 mb-4 w-full text-left">
+            {erro}
+          </p>
+        )}
+
         <BtnPrimary onClick={finalizar} disabled={loading}>
-          {loading ? 'A guardar...' : 'Finalizar e entrar'}
+          {loading ? 'A criar conta...' : 'Finalizar e entrar'}
         </BtnPrimary>
       </div>
     </Screen>

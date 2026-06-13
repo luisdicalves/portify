@@ -6,12 +6,8 @@ import { Screen, StepDots, ProgressBar, BtnPrimary } from '@/components/ui'
 import { Check } from 'lucide-react'
 
 const OPCOES: { id: TipoAtivo; emoji: string; title: string; subtitle: string }[] = [
-  { id: 'acoes',          emoji: '📈', title: 'Ações',           subtitle: 'Empresas cotadas em bolsa'          },
-  { id: 'etfs',           emoji: '🧺', title: 'ETFs',            subtitle: 'Fundos de índice diversificados'    },
-  { id: 'reits',          emoji: '🏢', title: 'REITs',           subtitle: 'Fundos de investimento imobiliário' },
-  { id: 'obrigacoes',     emoji: '📄', title: 'Obrigações',      subtitle: 'Dívida pública e corporativa'       },
-  { id: 'cripto',         emoji: '🪙', title: 'Criptomoedas',    subtitle: 'Ativos digitais descentralizados'   },
-  { id: 'materias-primas',emoji: '🛢️', title: 'Matérias-primas', subtitle: 'Ouro, petróleo, prata, etc.'        },
+  { id: 'acoes', emoji: '📈', title: 'Ações',  subtitle: 'Empresas cotadas em bolsa'       },
+  { id: 'etfs',  emoji: '🧺', title: 'ETFs',   subtitle: 'Fundos de índice diversificados' },
 ]
 
 export default function TiposAtivo() {
@@ -37,7 +33,7 @@ export default function TiposAtivo() {
           O que queres gerir?
         </h2>
         <p className="text-[13px] text-stone-500 mb-6 leading-relaxed">
-          Escolhe os tipos de ativos que pretendes acompanhar. Podes selecionar mais do que um.
+          Escolhe os tipos de ativos que pretendes acompanhar.
         </p>
 
         <div className="flex flex-col gap-2.5 flex-1">

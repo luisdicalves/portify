@@ -19,16 +19,17 @@ export default function CriarConta() {
   const router = useRouter()
   const { data, update } = useOnboarding()
 
-  const [nome,        setNome]        = useState(data.nome)
-  const [apelido,     setApelido]     = useState(data.apelido)
-  const [dataNasc,    setDataNasc]    = useState('')
-  const [userId,      setUserId]      = useState(data.userId)
-  const [email,       setEmail]       = useState(data.email)
-  const [password,    setPassword]    = useState('')
-  const [erro,        setErro]        = useState('')
-  const [loading,     setLoading]     = useState(false)
-  const [checkingId,  setCheckingId]  = useState(false)
-  const [idDisponivel, setIdDisponivel] = useState<boolean | null>(null)
+  const [nome,         setNome]         = useState(data.nome)
+  const [apelido,      setApelido]      = useState(data.apelido)
+  const [dataNasc,     setDataNasc]     = useState(data.dataNasc)
+  const [userId,       setUserId]       = useState(data.userId)
+  const [email,        setEmail]        = useState(data.email)
+  const [password,     setPassword]     = useState(data.password)
+  const [erro,         setErro]         = useState('')
+  const [checkingId,   setCheckingId]   = useState(false)
+  const [idDisponivel, setIdDisponivel] = useState<boolean | null>(
+    data.userId.length >= 3 ? true : null
+  )
 
   const userIdLimpo = userId.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '')
 
@@ -51,42 +52,22 @@ export default function CriarConta() {
     setIdDisponivel(!existente)
   }
 
-  async function avancar() {
+  function avancar() {
     setErro('')
     if (calcIdade(dataNasc) < 18) {
       setErro('É necessário ter pelo menos 18 anos para criar uma conta.')
       return
     }
-    setLoading(true)
-    try {
-      const { data: authData, error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: { data: { nome: nome.trim(), apelido: apelido.trim(), data_nascimento: dataNasc } },
-      })
-      if (error) {
-        if (error.message.includes('already registered') || error.message.includes('already been registered')) {
-          setErro('Já existe uma conta com este email. Faz login.')
-        } else {
-          setErro(error.message)
-        }
-        return
-      }
-      const user = authData.user
-      if (user) {
-        await supabase.from('perfis').upsert({
-          id:               user.id,
-          nome:             nome.trim(),
-          apelido:          apelido.trim(),
-          data_nascimento:  dataNasc,
-          user_id_publico:  userIdLimpo,
-        })
-      }
-      update({ nome: nome.trim(), apelido: apelido.trim(), email: email.trim(), userId: userIdLimpo })
-      router.push('/onboarding/seguranca')
-    } finally {
-      setLoading(false)
-    }
+    // Guardar tudo no contexto — nada vai para o Supabase ainda
+    update({
+      nome:     nome.trim(),
+      apelido:  apelido.trim(),
+      dataNasc: dataNasc,
+      email:    email.trim(),
+      password: password,
+      userId:   userIdLimpo,
+    })
+    router.push('/onboarding/seguranca')
   }
 
   return (
@@ -154,7 +135,7 @@ export default function CriarConta() {
           </p>
         </div>
 
-        <Field label="Email"         type="email"    value={email}    onChange={setEmail}    placeholder="joao@gmail.com"     />
+        <Field label="Email"         type="email"    value={email}    onChange={setEmail}    placeholder="joao@gmail.com"      />
         <Field label="Palavra-passe" type="password" value={password} onChange={setPassword} placeholder="Mínimo 6 caracteres" />
 
         {erro && (
@@ -163,8 +144,8 @@ export default function CriarConta() {
           </p>
         )}
 
-        <BtnPrimary onClick={avancar} disabled={!podeAvancar || loading} className="mt-2 mb-6">
-          {loading ? 'A criar conta...' : 'Continuar'}
+        <BtnPrimary onClick={avancar} disabled={!podeAvancar} className="mt-2 mb-6">
+          Continuar
         </BtnPrimary>
 
         <div className="flex items-center gap-3 mb-4">
