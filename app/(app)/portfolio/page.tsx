@@ -108,8 +108,8 @@ function ModalTransacao({ onClose, onAdd }: {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose}/>
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-sm bg-white rounded-t-3xl z-50 pb-8 shadow-2xl max-h-[92vh] overflow-y-auto">
+      <div className="fixed inset-0 bg-black/40 z-[55]" onClick={onClose}/>
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-sm bg-white rounded-t-3xl z-[60] pb-8 shadow-2xl max-h-[92vh] overflow-y-auto">
         <div className="flex justify-center pt-3 pb-1 sticky top-0 bg-white z-10"><div className="w-10 h-1 bg-stone-200 rounded-full"/></div>
         <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b border-stone-100 sticky top-5 bg-white z-10">
           <p className="text-[16px] font-semibold text-stone-900">Registar transação</p>
@@ -188,8 +188,8 @@ function ModalTransacao({ onClose, onAdd }: {
 function DialogApagar({ texto,onClose,onConfirm }: { texto:string;onClose:()=>void;onConfirm:()=>void }) {
   return (
     <>
-      <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose}/>
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-sm bg-white rounded-t-3xl z-50 pb-8 shadow-2xl">
+      <div className="fixed inset-0 bg-black/40 z-[55]" onClick={onClose}/>
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-sm bg-white rounded-t-3xl z-[60] pb-8 shadow-2xl">
         <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 bg-stone-200 rounded-full"/></div>
         <div className="px-5 pt-4 pb-2 text-center">
           <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4"><Trash2 size={22} color="#D85A30"/></div>

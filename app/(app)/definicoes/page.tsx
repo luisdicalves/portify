@@ -101,8 +101,8 @@ function DialogAlterarPin({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose}/>
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-sm bg-white rounded-t-3xl z-50 pb-8 shadow-2xl">
+      <div className="fixed inset-0 bg-black/50 z-[55]" onClick={onClose}/>
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-sm bg-white rounded-t-3xl z-[60] pb-8 shadow-2xl">
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 bg-stone-200 rounded-full"/>
         </div>
@@ -182,8 +182,8 @@ function DialogEliminarConta({ onClose, onConfirm, loading }: {
   const [confirmado, setConfirmado] = useState(false)
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose}/>
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-sm bg-white rounded-t-3xl z-50 pb-8 shadow-2xl max-h-[92vh] overflow-y-auto">
+      <div className="fixed inset-0 bg-black/50 z-[55]" onClick={onClose}/>
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-sm bg-white rounded-t-3xl z-[60] pb-8 shadow-2xl max-h-[92vh] overflow-y-auto">
         <div className="flex justify-center pt-3 pb-1 sticky top-0 bg-white z-10">
           <div className="w-10 h-1 bg-stone-200 rounded-full"/>
         </div>

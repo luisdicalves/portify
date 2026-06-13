@@ -41,8 +41,8 @@ type PerfilData = {
 function Dialog({ title, onClose, children }: { title:string; onClose:()=>void; children:React.ReactNode }) {
   return (
     <>
-      <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose}/>
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-sm bg-white rounded-t-3xl z-50 pb-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="fixed inset-0 bg-black/40 z-[55]" onClick={onClose}/>
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-sm bg-white rounded-t-3xl z-[60] pb-8 shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-center pt-3 pb-1 sticky top-0 bg-white"><div className="w-10 h-1 bg-stone-200 rounded-full"/></div>
         <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b border-stone-100 sticky top-5 bg-white">
           <p className="text-[16px] font-semibold text-stone-900">{title}</p>
