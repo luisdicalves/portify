@@ -8,6 +8,7 @@ interface DadosDividendo {
   exDividendDate: string | null  // ISO
   dividendDate: string | null    // ISO (próximo pagamento, estimado)
   moeda: string
+  historico: { data: string; valor: number }[] // pagamentos passados (por unidade), até ~2 anos
 }
 
 export async function GET(req: NextRequest) {
@@ -77,6 +78,10 @@ export async function GET(req: NextRequest) {
           exDividendDate,
           dividendDate,
           moeda: meta.currency ?? 'USD',
+          historico: entries.map(e => ({
+            data: new Date(e.date * 1000).toISOString(),
+            valor: e.amount,
+          })),
         }
       } catch {
         return null

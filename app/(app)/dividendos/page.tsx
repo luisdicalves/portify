@@ -14,10 +14,10 @@ type PosicaoAgregada = { ticker: string; unidades: number; preco_medio: number; 
 type DadosDividendo = {
   ticker: string; nome: string; dividendRate: number; dividendYield: number
   exDividendDate: string | null; dividendDate: string | null; moeda: string
+  historico: { data: string; valor: number }[]
 }
 
 const MESES_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
-const DIAS_SEMANA_PT = ['S','T','Q','Q','S','S','D'] // segunda-domingo
 
 function fmt(n: number) {
   return n.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
@@ -46,7 +46,6 @@ export default function Dividendos() {
   const [posicoes,    setPosicoes]    = useState<PosicaoAgregada[]>([])
   const [dividendos,  setDividendos]  = useState<Record<string, DadosDividendo>>({})
   const [carregando,  setCarregando]  = useState(true)
-  const [mesAtual,    setMesAtual]    = useState(new Date())
 
   useEffect(() => {
     async function load() {
@@ -74,26 +73,43 @@ export default function Dividendos() {
     load()
   }, [router])
 
-  /* ─── Cálculos: Resumo ─── */
-  const custoTotal = posicoes.reduce((s, p) => s + p.preco_medio * p.unidades, 0)
+  const hoje = new Date()
+  const inicioAno = new Date(hoje.getFullYear(), 0, 1)
 
-  // Dividendo anual estimado por posição (valor anual na moeda da posição, assumido ~EUR para simplificar)
+  /* ─── Histórico real de pagamentos recebidos, por posição ─── */
   const dividendoAnualPorPosicao = posicoes.map(p => {
     const d = dividendos[p.ticker]
     const anual = d ? d.dividendRate * p.unidades : 0
-    return { ticker: p.ticker, nome: d?.nome ?? p.ticker, anual, dadosDiv: d }
+    return { ticker: p.ticker, nome: d?.nome ?? p.ticker, anual, dadosDiv: d, unidades: p.unidades }
   })
 
-  const totalAnual = dividendoAnualPorPosicao.reduce((s, p) => s + p.anual, 0)
-  const totalMensalMedio = totalAnual / 12
-  const yieldOnCost = custoTotal > 0 ? (totalAnual / custoTotal) * 100 : 0
+  const custoTotal = posicoes.reduce((s, p) => s + p.preco_medio * p.unidades, 0)
+  const totalAnualEstimado = dividendoAnualPorPosicao.reduce((s, p) => s + p.anual, 0)
+  const yieldOnCost = custoTotal > 0 ? (totalAnualEstimado / custoTotal) * 100 : 0
+
+  // Lista de pagamentos históricos reais (por posição), escalados pelas unidades atuais
+  type PagamentoHistorico = { ticker: string; nome: string; data: Date; valor: number }
+  const pagamentosHistoricos: PagamentoHistorico[] = []
+  for (const p of dividendoAnualPorPosicao) {
+    if (!p.dadosDiv?.historico) continue
+    for (const h of p.dadosDiv.historico) {
+      pagamentosHistoricos.push({
+        ticker: p.ticker, nome: p.nome, data: new Date(h.data), valor: h.valor * p.unidades,
+      })
+    }
+  }
+  pagamentosHistoricos.sort((a, b) => b.data.getTime() - a.data.getTime())
+
+  const totalRecebido = pagamentosHistoricos.reduce((s, p) => s + p.valor, 0)
+  const recebidoEsteAno = pagamentosHistoricos
+    .filter(p => p.data >= inicioAno && p.data <= hoje)
+    .reduce((s, p) => s + p.valor, 0)
+
+  const acoesComDividendo = dividendoAnualPorPosicao.filter(p => p.anual > 0).length
 
   /* ─── Projeção de pagamentos futuros (12 meses), com base na cadência real de cada ticker ───
-     Para cada posição com dividendDate estimada, projeta pagamentos repetindo de
-     ~3 em 3 meses (cadência trimestral típica) durante os próximos 12 meses.
-     Estes pagamentos são a fonte única tanto da Previsão mensal como dos Próximos pagamentos,
-     garantindo coerência entre os dois blocos. */
-  const hoje = new Date()
+     Estes pagamentos são a fonte única tanto da Previsão mensal como dos Próximos pagamentos
+     e também alimentam a estimativa "este mês" / "este ano". */
   const horizonteFim = new Date(hoje.getFullYear(), hoje.getMonth() + 12, hoje.getDate())
 
   type PagamentoProjetado = { ticker: string; nome: string; data: Date; valor: number }
@@ -101,15 +117,12 @@ export default function Dividendos() {
 
   for (const p of dividendoAnualPorPosicao) {
     if (!p.dadosDiv?.dividendDate || p.anual <= 0) continue
-    const posicao = posicoes.find(x => x.ticker === p.ticker)!
-    const valorPorPagamento = p.dadosDiv.dividendRate / 4 * posicao.unidades // trimestral típico
+    const valorPorPagamento = p.dadosDiv.dividendRate / 4 * p.unidades // trimestral típico
 
     let dataPagamento = new Date(p.dadosDiv.dividendDate)
-    // recuar até à primeira ocorrência futura/atual a partir de hoje
     while (dataPagamento < new Date(hoje.getFullYear(), hoje.getMonth(), 1)) {
       dataPagamento = new Date(dataPagamento.getFullYear(), dataPagamento.getMonth() + 3, dataPagamento.getDate())
     }
-    // gerar ocorrências trimestrais até ao fim do horizonte
     while (dataPagamento <= horizonteFim) {
       pagamentosProjetados.push({
         ticker: p.ticker, nome: p.nome, data: new Date(dataPagamento), valor: valorPorPagamento,
@@ -125,35 +138,30 @@ export default function Dividendos() {
     const total = pagamentosProjetados
       .filter(p => p.data.getFullYear() === d.getFullYear() && p.data.getMonth() === d.getMonth())
       .reduce((s, p) => s + p.valor, 0)
-    return { mes: MESES_PT[d.getMonth()], val: Math.round(total * 100) / 100 }
+    return { ano: d.getFullYear(), mesIdx: d.getMonth(), mes: MESES_PT[d.getMonth()], val: Math.round(total * 100) / 100 }
   })
   const maxVal = Math.max(...previsaoMensal.map(d => d.val), 1)
+
+  // Estimado este mês = soma das projeções para o mês corrente (mesma fonte que a previsão mensal)
+  const estimadoEsteMes = previsaoMensal[0]?.val ?? 0
+
+  // Estimado este ano = já recebido este ano + projeções até dezembro deste ano
+  const estimadoRestoAno = previsaoMensal
+    .filter(d => d.ano === hoje.getFullYear())
+    .reduce((s, d) => s + d.val, 0)
+  const estimadoEsteAno = recebidoEsteAno + estimadoRestoAno
 
   /* ─── Próximos pagamentos: primeiras ocorrências projetadas ─── */
   const proximosPagamentos = pagamentosProjetados.slice(0, 5)
 
-  /* ─── Calendário do mês ─── */
-  const ano = mesAtual.getFullYear()
-  const mes = mesAtual.getMonth()
-  const nomeMes = mesAtual.toLocaleDateString('pt-PT', { month: 'long' })
-  const diasNoMes = new Date(ano, mes + 1, 0).getDate()
-  const primeiroDiaSemana = (new Date(ano, mes, 1).getDay() + 6) % 7 // 0 = segunda
-  const diasArray = Array.from({ length: diasNoMes }, (_, i) => i + 1)
-
-  const exDividendDias = new Set<number>()
-  const pagamentoDias  = new Set<number>()
-  for (const p of dividendoAnualPorPosicao) {
-    if (p.dadosDiv?.exDividendDate) {
-      const d = new Date(p.dadosDiv.exDividendDate)
-      if (d.getFullYear() === ano && d.getMonth() === mes) exDividendDias.add(d.getDate())
-    }
-    if (p.dadosDiv?.dividendDate) {
-      const d = new Date(p.dadosDiv.dividendDate)
-      if (d.getFullYear() === ano && d.getMonth() === mes) pagamentoDias.add(d.getDate())
-    }
+  /* ─── Lista de ações que já deram dividendos, com total recebido por ticker ─── */
+  const totalPorTicker = new Map<string, { ticker: string; nome: string; total: number; numPagamentos: number }>()
+  for (const p of pagamentosHistoricos) {
+    const ex = totalPorTicker.get(p.ticker)
+    if (ex) { ex.total += p.valor; ex.numPagamentos += 1 }
+    else totalPorTicker.set(p.ticker, { ticker: p.ticker, nome: p.nome, total: p.valor, numPagamentos: 1 })
   }
-  const ehHoje = (dia: number) =>
-    ano === hoje.getFullYear() && mes === hoje.getMonth() && dia === hoje.getDate()
+  const listaAcoesComDividendos = Array.from(totalPorTicker.values()).sort((a, b) => b.total - a.total)
 
   const semDados = !carregando && posicoes.length > 0 &&
     Object.keys(dividendos).length === 0
@@ -186,8 +194,8 @@ export default function Dividendos() {
         {carregando ? (
           <div className="bg-white rounded-2xl border border-stone-200 p-4 space-y-3">
             <div className="h-4 w-24 bg-stone-100 rounded animate-pulse"/>
-            <div className="grid grid-cols-3 gap-2">
-              {[1,2,3].map(i => <div key={i} className="h-14 bg-stone-50 rounded-xl animate-pulse"/>)}
+            <div className="grid grid-cols-2 gap-2">
+              {[1,2,3,4,5,6].map(i => <div key={i} className="h-14 bg-stone-50 rounded-xl animate-pulse"/>)}
             </div>
           </div>
         ) : posicoes.length === 0 ? (
@@ -199,11 +207,14 @@ export default function Dividendos() {
             {/* Resumo */}
             <div className="bg-white rounded-2xl border border-stone-200 p-4">
               <p className="text-[11px] font-medium text-stone-400 uppercase tracking-wider mb-3">Resumo</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {[
-                  { label: 'Por mês (média)', value: fmt(totalMensalMedio), green: true },
-                  { label: 'Por ano (est.)',  value: fmt(totalAnual),       green: true },
-                  { label: 'Yield on Cost',   value: yieldOnCost.toLocaleString('pt-PT',{minimumFractionDigits:1,maximumFractionDigits:1}) + '%', green: false },
+                  { label: 'Total recebido',        value: fmt(totalRecebido),     green: true  },
+                  { label: 'Recebido este ano',     value: fmt(recebidoEsteAno),   green: true  },
+                  { label: 'Ações com dividendos',  value: String(acoesComDividendo), green: false },
+                  { label: 'Estimado este mês',     value: fmt(estimadoEsteMes),   green: false },
+                  { label: 'Estimado este ano',     value: fmt(estimadoEsteAno),   green: false },
+                  { label: 'Yield on Cost',         value: yieldOnCost.toLocaleString('pt-PT',{minimumFractionDigits:1,maximumFractionDigits:1}) + '%', green: false },
                 ].map(m => (
                   <div key={m.label} className="bg-stone-50 rounded-xl p-3">
                     <p className="text-[10px] text-stone-500 mb-1">{m.label}</p>
@@ -219,6 +230,32 @@ export default function Dividendos() {
                 </p>
               )}
             </div>
+
+            {/* Ações que já deram dividendos */}
+            {listaAcoesComDividendos.length > 0 && (
+              <div className="bg-white rounded-2xl border border-stone-200 p-4">
+                <p className="text-[11px] font-medium text-stone-400 uppercase tracking-wider mb-3">
+                  Ações com dividendos recebidos
+                </p>
+                {listaAcoesComDividendos.map((a, i) => (
+                  <div key={a.ticker}
+                    className={`flex items-center gap-3 py-3
+                      ${i < listaAcoesComDividendos.length - 1 ? 'border-b border-stone-100' : ''}`}>
+                    <div className="w-9 h-9 rounded-[9px] bg-stone-50 border border-stone-200
+                      flex items-center justify-center text-[10px] font-semibold text-stone-600 flex-shrink-0">
+                      {a.ticker.slice(0, 4)}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[13px] font-medium text-stone-900">{a.nome}</p>
+                      <p className="text-[11px] text-stone-400">
+                        {a.numPagamentos} pagamento{a.numPagamentos > 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <p className="text-[14px] font-semibold text-brand-600">+{fmt(a.total)}</p>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Previsão mensal */}
             {pagamentosProjetados.length > 0 && (
@@ -247,59 +284,6 @@ export default function Dividendos() {
               </div>
             )}
 
-            {/* Calendário */}
-            <div className="bg-white rounded-2xl border border-stone-200 p-4">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-[11px] font-medium text-stone-400 uppercase tracking-wider">
-                  Calendário — {nomeMes.charAt(0).toUpperCase() + nomeMes.slice(1)}
-                </p>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => setMesAtual(new Date(ano, mes - 1, 1))}
-                    className="w-6 h-6 rounded-md border border-stone-200 text-stone-500 text-[12px] active:bg-stone-50">‹</button>
-                  <button
-                    onClick={() => setMesAtual(new Date(ano, mes + 1, 1))}
-                    className="w-6 h-6 rounded-md border border-stone-200 text-stone-500 text-[12px] active:bg-stone-50">›</button>
-                </div>
-              </div>
-              <div className="grid grid-cols-7 gap-[3px] mb-3">
-                {DIAS_SEMANA_PT.map((d, i) => (
-                  <div key={i} className="text-center text-[10px] font-medium text-stone-400 py-1">{d}</div>
-                ))}
-                {Array.from({ length: primeiroDiaSemana }).map((_, i) => <div key={`e${i}`} />)}
-                {diasArray.map(dia => {
-                  const isEx   = exDividendDias.has(dia)
-                  const isPay  = pagamentoDias.has(dia)
-                  const isHoje = ehHoje(dia)
-                  return (
-                    <div key={dia}
-                      className={`text-center text-[11px] py-[5px] rounded-md font-medium
-                        ${isPay ? 'bg-brand-50 text-brand-800' :
-                          isEx  ? 'bg-amber-100 text-amber-800' :
-                          isHoje ? 'border border-brand-400 text-stone-900' :
-                                   'text-stone-600'}`}>
-                      {dia}
-                    </div>
-                  )
-                })}
-              </div>
-              <div className="flex gap-4">
-                <div className="flex items-center gap-1.5 text-[11px] text-stone-500">
-                  <div className="w-3 h-3 rounded-sm bg-amber-100 border border-amber-300" />
-                  Ex-dividend
-                </div>
-                <div className="flex items-center gap-1.5 text-[11px] text-stone-500">
-                  <div className="w-3 h-3 rounded-sm bg-brand-50 border border-brand-200" />
-                  Pagamento
-                </div>
-              </div>
-              {exDividendDias.size === 0 && pagamentoDias.size === 0 && (
-                <p className="text-[11px] text-stone-400 mt-3">
-                  Sem datas de dividendos conhecidas para este mês.
-                </p>
-              )}
-            </div>
-
             {/* Próximos pagamentos */}
             {proximosPagamentos.length > 0 && (
               <div className="bg-white rounded-2xl border border-stone-200 p-4">
@@ -307,7 +291,7 @@ export default function Dividendos() {
                   Próximos pagamentos
                 </p>
                 {proximosPagamentos.map((p, i) => (
-                  <div key={p.ticker}
+                  <div key={`${p.ticker}-${i}`}
                     className={`flex items-center gap-3 py-3
                       ${i < proximosPagamentos.length - 1 ? 'border-b border-stone-100' : ''}`}>
                     <div className="w-9 h-9 rounded-[9px] bg-stone-50 border border-stone-200
