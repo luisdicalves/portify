@@ -1,5 +1,7 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
+import { BarChart2, History, Coins } from 'lucide-react'
 import { dividendos, dividendosMensais, proximosPagamentos } from '@/lib/mock-data'
 import { PageHeader } from '@/components/PageHeader'
 
@@ -16,10 +18,29 @@ function fmt(n: number) {
 const maxVal = Math.max(...dividendosMensais.map(d => d.val))
 
 export default function Dividendos() {
+  const router = useRouter()
   return (
     <div className="pb-2">
       {/* Top bar */}
       <PageHeader title="Dividendos" />
+
+      {/* Abas (submenu do portfólio) */}
+      <div className="bg-white px-5 pb-2 border-b border-stone-100">
+        <div className="flex gap-1">
+          <button onClick={()=>router.push('/portfolio')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] border transition-colors bg-white border-stone-200 text-stone-600">
+            <BarChart2 size={12}/>Posições
+          </button>
+          <button onClick={()=>router.push('/portfolio')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] border transition-colors bg-white border-stone-200 text-stone-600">
+            <History size={12}/>Histórico
+          </button>
+          <button
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] border transition-colors bg-brand-50 border-brand-400 text-brand-800 font-medium">
+            <Coins size={12}/>Dividendos
+          </button>
+        </div>
+      </div>
 
       <div className="px-4 pt-4 space-y-3">
 

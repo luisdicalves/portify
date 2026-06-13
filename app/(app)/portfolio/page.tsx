@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, X, RefreshCw, Trash2, History, BarChart2, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, X, RefreshCw, Trash2, History, BarChart2, ChevronUp, ChevronDown, Coins } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { PageHeader } from '@/components/PageHeader'
 
@@ -244,7 +245,7 @@ function PosicaoRow({ pos,cotacao,onApagar }: { pos:PosicaoAgregada;cotacao?:Cot
             <p className={`text-[12px] font-semibold ${positivo?'text-brand-600':'text-red-500'}`}>{positivo?'+':''}{fmtEur(ganho)}</p>
             <p className={`text-[10px] ${positivo?'text-brand-500':'text-red-400'}`}>{positivo?'+':''}{fmt(ganhoPct)}%</p>
           </div>
-          <button onClick={onApagar} className="ml-2 w-6 h-6 flex items-center justify-center text-stone-300 hover:text-red-400 transition-colors flex-shrink-0"><X size={14} strokeWidth={2}/></button>
+          <button onClick={onApagar} className="ml-2 w-6 h-6 flex items-center justify-center text-stone-300 hover:text-red-400 transition-colors flex-shrink-0"><Trash2 size={13} strokeWidth={1.75}/></button>
         </div>
       </div>
     </div>
@@ -271,13 +272,14 @@ function HistoricoRow({ t,onApagar }: { t:Transacao;onApagar:()=>void }) {
       <div className="text-right flex-shrink-0 mr-2">
         <p className={`text-[13px] font-semibold ${isVenda?'text-red-500':'text-brand-600'}`}>{isVenda?'-':'+'}{fmtEur(total)}</p>
       </div>
-      <button onClick={onApagar} className="w-6 h-6 flex items-center justify-center text-stone-300 hover:text-red-400 transition-colors flex-shrink-0"><X size={14} strokeWidth={2}/></button>
+      <button onClick={onApagar} className="w-6 h-6 flex items-center justify-center text-stone-300 hover:text-red-400 transition-colors flex-shrink-0"><Trash2 size={13} strokeWidth={1.75}/></button>
     </div>
   )
 }
 
 /* ─── Página ─── */
 export default function Portfolio() {
+  const router = useRouter()
   const [aba,            setAba]            = useState<Aba>('posicoes')
   const [filtro,         setFiltro]         = useState<Filtro>('Todos')
   const [modalAberto,    setModalAberto]    = useState(false)
@@ -404,6 +406,10 @@ export default function Portfolio() {
               {id==='historico'&&<span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${aba===id?'bg-brand-100 text-brand-700':'bg-stone-100 text-stone-500'}`}>{transacoes.length}</span>}
             </button>
           ))}
+          <button onClick={()=>router.push('/dividendos')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] border transition-colors bg-white border-stone-200 text-stone-600">
+            <Coins size={12}/>Dividendos
+          </button>
         </div>
         <div className="flex items-center gap-2">
           <p className="text-[11px] text-stone-400">
