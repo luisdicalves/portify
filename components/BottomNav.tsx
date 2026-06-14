@@ -1,13 +1,12 @@
 'use client'
 
 import { useRouter, usePathname } from 'next/navigation'
-import { Home, BarChart2, Sparkles, Target } from 'lucide-react'
+import { Home, BarChart2, Sparkles } from 'lucide-react'
 
 const NAV = [
-  { href: '/dashboard', Icon: Home,     label: 'Início'    },
+  { href: '/dashboard', Icon: Home,      label: 'Início'    },
   { href: '/portfolio', Icon: BarChart2, label: 'Portfólio' },
   { href: '/para-ti',   Icon: Sparkles,  label: 'Para ti'   },
-  { href: '/plano',     Icon: Target,    label: 'Plano'     },
 ]
 
 export function BottomNav() {

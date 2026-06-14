@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { TrendingUp } from 'lucide-react'
+import { TrendingUp, CheckCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Screen, Field, BtnPrimary, BtnGhost } from '@/components/ui'
 
@@ -12,6 +12,7 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [erro,     setErro]     = useState('')
   const [loading,  setLoading]  = useState(false)
+  const [recuperado, setRecuperado] = useState(false)
 
   const podeEntrar = email.includes('@') && password.length >= 6
 
@@ -32,9 +33,11 @@ export default function Login() {
 
   async function recuperar() {
     if (!email.includes('@')) { setErro('Insere o teu email primeiro.'); return }
-    await supabase.auth.resetPasswordForEmail(email)
     setErro('')
-    alert('Email de recuperação enviado. Verifica a tua caixa de entrada.')
+    await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/redefinir-password`,
+    })
+    setRecuperado(true)
   }
 
   return (
@@ -58,10 +61,17 @@ export default function Login() {
           </p>
         )}
 
-        <button onClick={recuperar}
-          className="text-[12px] text-brand-600 text-right mb-6 -mt-2">
-          Esqueci a palavra-passe
-        </button>
+        {recuperado ? (
+          <div className="flex items-center gap-2 text-[12px] text-brand-600 bg-brand-50 border border-brand-100 rounded-xl px-4 py-3 mb-6">
+            <CheckCircle size={16} className="flex-shrink-0"/>
+            <span>Email de recuperação enviado. Verifica a tua caixa de entrada.</span>
+          </div>
+        ) : (
+          <button onClick={recuperar}
+            className="text-[12px] text-brand-600 text-right mb-6 -mt-2">
+            Esqueci a palavra-passe
+          </button>
+        )}
 
         <BtnPrimary onClick={entrar} disabled={!podeEntrar || loading}>
           {loading ? 'A entrar...' : 'Entrar'}
