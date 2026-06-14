@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, X, RefreshCw, Trash2, History, BarChart2, ChevronUp, ChevronDown, Coins, Landmark } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { PageHeader } from '@/components/PageHeader'
 
@@ -10,7 +9,7 @@ import { PageHeader } from '@/components/PageHeader'
 type Tipo     = 'Ação' | 'ETF' | 'REIT'
 type Operacao = 'compra' | 'venda'
 type Filtro   = 'Todos' | 'ETFs' | 'Ações' | 'REITs'
-type Aba      = 'posicoes' | 'historico'
+type Aba      = 'posicoes' | 'dividendos' | 'historico'
 type OrdemKey = 'ticker' | 'custo' | 'valor' | 'ganho_pct'
 type OrdemDir = 'asc' | 'desc'
 
@@ -25,12 +24,22 @@ type Cotacao = {
   preco: number; variacao: number; variacaoPct: number
   moeda: string; bandeira: string; nome: string; timestamp: string
 }
+type DadosDividendo = {
+  ticker: string; nome: string; dividendRate: number; dividendYield: number
+  exDividendDate: string | null; dividendDate: string | null; moeda: string
+  historico: { data: string; valor: number }[]
+}
+
+const MESES_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 
 /* ─── Helpers ─── */
 function fmt(n: number, casas = 2) {
   return n.toLocaleString('pt-PT', { minimumFractionDigits: casas, maximumFractionDigits: casas })
 }
 function fmtEur(n: number) { return '€' + fmt(n) }
+function fmtDiv(n: number) {
+  return n.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
+}
 function hojeISO() { return new Date().toISOString().split('T')[0] }
 function horaNow() {
   const d = new Date()
@@ -50,6 +59,8 @@ function getBandeira(ticker: string): string {
   if (['VWCE','CSPX','IWDA','EIMI','IUSQ','VUSA','VUAA'].includes(t.split('.')[0])) return '🇮🇪'
   return '🇺🇸'
 }
+
+/* Logo partilhado — mesmo tamanho em Posições, Dividendos e Histórico */
 function LogoTicker({ ticker }: { ticker: string }) {
   const [erro, setErro] = useState(false)
   const simbolo = ticker.split('.')[0].toUpperCase()
@@ -293,34 +304,83 @@ function PosicaoRow({ pos,cotacao,onApagar }: { pos:PosicaoAgregada;cotacao?:Cot
   )
 }
 
-/* ─── Linha histórico ─── */
+/* ─── Linha histórico — mesmo estilo de card que Posições/Dividendos ─── */
 function HistoricoRow({ t,onApagar }: { t:Transacao;onApagar:()=>void }) {
-  const isVenda  = t.unidades<0
-  const data     = t.data_compra?new Date(t.data_compra).toLocaleDateString('pt-PT'):'—'
-  const hora     = t.data_compra?new Date(t.data_compra).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'}):''
-  const total    = Math.abs(t.unidades)*t.preco_medio
+  const isVenda = t.unidades<0
+  const data    = t.data_compra?new Date(t.data_compra).toLocaleDateString('pt-PT'):'—'
+  const hora    = t.data_compra?new Date(t.data_compra).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'}):''
+  const total   = Math.abs(t.unidades)*t.preco_medio
   return (
-    <div className="px-3 py-3 border-b border-stone-100 last:border-0 flex items-center gap-2">
-      <span className="text-[15px] flex-shrink-0">{getBandeira(t.ticker)}</span>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <span className="text-[13px] font-bold text-stone-900">{t.ticker}</span>
-          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${isVenda?'bg-red-50 text-red-600':'bg-brand-50 text-brand-700'}`}>{isVenda?'Venda':'Compra'}</span>
+    <div className="px-3 py-3 border-b border-stone-100 last:border-0">
+      {/* Cabeçalho: logo + nome/tag + ticker, apagar à direita */}
+      <div className="flex items-center gap-2 mb-3">
+        <LogoTicker ticker={t.ticker}/>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[14px] font-bold text-stone-900 truncate">{t.ticker}</span>
+            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0 ${isVenda?'bg-red-50 text-red-600':'bg-brand-50 text-brand-700'}`}>{isVenda?'Venda':'Compra'}</span>
+          </div>
+          <p className="text-[11px] text-stone-400 mt-0.5 truncate">{t.ticker}</p>
         </div>
-        <p className="text-[11px] text-stone-400 mt-0.5">{fmt(Math.abs(t.unidades),4)} ações · {fmtEur(t.preco_medio)}/ação</p>
-        <p className="text-[10px] text-stone-400">{data} {hora}</p>
+        <button onClick={onApagar} className="w-7 h-7 flex items-center justify-center text-stone-300 hover:text-red-400 transition-colors flex-shrink-0 rounded-full bg-stone-50">
+          <Trash2 size={13} strokeWidth={1.75}/>
+        </button>
       </div>
-      <div className="text-right flex-shrink-0 mr-2">
-        <p className={`text-[13px] font-semibold ${isVenda?'text-red-500':'text-brand-600'}`}>{isVenda?'-':'+'}{fmtEur(total)}</p>
+
+      {/* Métricas: 3 colunas estilo cards */}
+      <div className="grid grid-cols-3 gap-2">
+        <div>
+          <p className="text-[10px] text-stone-400 mb-0.5">Unidades</p>
+          <p className="text-[13px] font-bold text-stone-900">{fmt(Math.abs(t.unidades),4)}</p>
+          <p className="text-[10px] text-stone-400">@ {fmtEur(t.preco_medio)}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-stone-400 mb-0.5">Data</p>
+          <p className="text-[13px] font-bold text-stone-900">{data}</p>
+          <p className="text-[10px] text-stone-400">{hora}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] text-stone-400 mb-0.5">Total</p>
+          <p className={`text-[13px] font-bold ${isVenda?'text-red-500':'text-brand-600'}`}>{isVenda?'-':'+'}{fmtEur(total)}</p>
+        </div>
       </div>
-      <button onClick={onApagar} className="w-6 h-6 flex items-center justify-center text-stone-300 hover:text-red-400 transition-colors flex-shrink-0"><Trash2 size={13} strokeWidth={1.75}/></button>
+    </div>
+  )
+}
+
+/* ─── Linha "Ação com dividendos" / "Próximo pagamento" — mesmo estilo de card ─── */
+function DividendoRow({ ticker, nome, tipo, valorLabel, valor, subLabel, sub }: {
+  ticker: string; nome: string; tipo: string
+  valorLabel: string; valor: string; subLabel: string; sub: string
+}) {
+  return (
+    <div className="px-3 py-3 border-b border-stone-100 last:border-0">
+      <div className="flex items-center gap-2 mb-3">
+        <LogoTicker ticker={ticker}/>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[14px] font-bold text-stone-900 truncate">{nome}</span>
+            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500 flex-shrink-0">{tipo}</span>
+          </div>
+          <p className="text-[11px] text-stone-400 mt-0.5 truncate">{ticker}</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <p className="text-[10px] text-stone-400 mb-0.5">{valorLabel}</p>
+          <p className="text-[13px] font-bold text-brand-600">+{valor}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] text-stone-400 mb-0.5">{subLabel}</p>
+          <p className="text-[13px] font-bold text-stone-900">{sub}</p>
+        </div>
+      </div>
     </div>
   )
 }
 
 /* ─── Página ─── */
 export default function Portfolio() {
-  const router = useRouter()
   const [aba,            setAba]            = useState<Aba>('posicoes')
   const [filtro,         setFiltro]         = useState<Filtro>('Todos')
   const [modalAberto,    setModalAberto]    = useState(false)
@@ -332,14 +392,25 @@ export default function Portfolio() {
   const [apagarId,       setApagarId]       = useState<string|null>(null)
   const [ordem,          setOrdem]          = useState<{key:OrdemKey;dir:OrdemDir}|null>(null)
 
+  // Dividendos
+  const [dividendos,     setDividendos]     = useState<Record<string,DadosDividendo>>({})
+  const [carregandoDiv,  setCarregandoDiv]  = useState(true)
+  const [mostrarTodas,   setMostrarTodas]   = useState(false)
+
   useEffect(()=>{ carregar() },[])
 
   async function carregar() {
     setCarregando(true)
     const {data:{session}} = await supabase.auth.getSession()
-    if (!session) { setCarregando(false); return }
+    if (!session) { setCarregando(false); setCarregandoDiv(false); return }
     const {data} = await supabase.from('posicoes').select('*').order('data_compra',{ascending:true})
-    if (data) { setTransacoes(data as Transacao[]); await buscarCotacoes(data as Transacao[]) }
+    if (data) {
+      setTransacoes(data as Transacao[])
+      await buscarCotacoes(data as Transacao[])
+      await buscarDividendos(data as Transacao[])
+    } else {
+      setCarregandoDiv(false)
+    }
     setCarregando(false)
   }
 
@@ -353,18 +424,39 @@ export default function Portfolio() {
     setCotacoes(novas); setUltimaConsulta(new Date()); setAtualizando(false)
   },[])
 
+  const buscarDividendos = useCallback(async (lista:Transacao[])=>{
+    setCarregandoDiv(true)
+    const pos = agregarPosicoes(lista)
+    if (pos.length === 0) { setDividendos({}); setCarregandoDiv(false); return }
+    const tickers = pos.map(p=>p.ticker).join(',')
+    try {
+      const r = await fetch(`/api/dividendos?tickers=${encodeURIComponent(tickers)}`)
+      if (r.ok) {
+        const { dados } = await r.json()
+        const mapa: Record<string,DadosDividendo> = {}
+        for (const d of dados as DadosDividendo[]) mapa[d.ticker] = d
+        setDividendos(mapa)
+      }
+    } catch {}
+    setCarregandoDiv(false)
+  },[])
+
   async function adicionarTransacao(nova:Omit<Transacao,'id'>):Promise<string|null>{
     const {data:{session}} = await supabase.auth.getSession()
     if (!session?.user) return 'Sem sessão.'
     const {data,error} = await supabase.from('posicoes').insert({...nova,user_id:session.user.id}).select().single()
     if (error) return error.message
-    if (data) { const novas=[...transacoes,data as Transacao].sort((a,b)=>(a.data_compra??'')<(b.data_compra??'')?-1:1); setTransacoes(novas); buscarCotacoes(novas) }
+    if (data) {
+      const novas=[...transacoes,data as Transacao].sort((a,b)=>(a.data_compra??'')<(b.data_compra??'')?-1:1)
+      setTransacoes(novas); buscarCotacoes(novas); buscarDividendos(novas)
+    }
     return null
   }
 
   async function apagarTransacao(id:string){
     await supabase.from('posicoes').delete().eq('id',id)
     const novas=transacoes.filter(t=>t.id!==id); setTransacoes(novas); setApagarId(null)
+    buscarDividendos(novas)
   }
 
   function toggleOrdem(key:OrdemKey){
@@ -417,6 +509,88 @@ export default function Portfolio() {
   const historicoFiltrado = [...transacoes].sort((a,b)=>(b.data_compra??'')>(a.data_compra??'')?1:-1)
   const transacaoApagar   = transacoes.find(t=>t.id===apagarId)
 
+  /* ─── Cálculos de Dividendos ─── */
+  const hoje = new Date()
+  const inicioAno = new Date(hoje.getFullYear(), 0, 1)
+
+  const dividendoAnualPorPosicao = posicoes.map(p => {
+    const d = dividendos[p.ticker]
+    const anual = d ? d.dividendRate * p.unidades : 0
+    return { ticker: p.ticker, nome: d?.nome ?? p.ticker, tipo: p.tipo, anual, dadosDiv: d, unidades: p.unidades }
+  })
+
+  const custoTotalDiv = posicoes.reduce((s, p) => s + p.preco_medio * p.unidades, 0)
+  const totalAnualEstimado = dividendoAnualPorPosicao.reduce((s, p) => s + p.anual, 0)
+  const yieldOnCost = custoTotalDiv > 0 ? (totalAnualEstimado / custoTotalDiv) * 100 : 0
+
+  type PagamentoHistorico = { ticker: string; nome: string; tipo: string; data: Date; valor: number }
+  const pagamentosHistoricos: PagamentoHistorico[] = []
+  for (const p of dividendoAnualPorPosicao) {
+    if (!p.dadosDiv?.historico) continue
+    for (const h of p.dadosDiv.historico) {
+      pagamentosHistoricos.push({
+        ticker: p.ticker, nome: p.nome, tipo: p.tipo, data: new Date(h.data), valor: h.valor * p.unidades,
+      })
+    }
+  }
+  pagamentosHistoricos.sort((a, b) => b.data.getTime() - a.data.getTime())
+
+  const totalRecebido = pagamentosHistoricos.reduce((s, p) => s + p.valor, 0)
+  const recebidoEsteAno = pagamentosHistoricos
+    .filter(p => p.data >= inicioAno && p.data <= hoje)
+    .reduce((s, p) => s + p.valor, 0)
+
+  const acoesComDividendo = dividendoAnualPorPosicao.filter(p => p.anual > 0).length
+
+  const horizonteFim = new Date(hoje.getFullYear(), hoje.getMonth() + 12, hoje.getDate())
+
+  type PagamentoProjetado = { ticker: string; nome: string; tipo: string; data: Date; valor: number }
+  const pagamentosProjetados: PagamentoProjetado[] = []
+
+  for (const p of dividendoAnualPorPosicao) {
+    if (!p.dadosDiv?.dividendDate || p.anual <= 0) continue
+    const valorPorPagamento = p.dadosDiv.dividendRate / 4 * p.unidades
+
+    let dataPagamento = new Date(p.dadosDiv.dividendDate)
+    while (dataPagamento < new Date(hoje.getFullYear(), hoje.getMonth(), 1)) {
+      dataPagamento = new Date(dataPagamento.getFullYear(), dataPagamento.getMonth() + 3, dataPagamento.getDate())
+    }
+    while (dataPagamento <= horizonteFim) {
+      pagamentosProjetados.push({
+        ticker: p.ticker, nome: p.nome, tipo: p.tipo, data: new Date(dataPagamento), valor: valorPorPagamento,
+      })
+      dataPagamento = new Date(dataPagamento.getFullYear(), dataPagamento.getMonth() + 3, dataPagamento.getDate())
+    }
+  }
+  pagamentosProjetados.sort((a, b) => a.data.getTime() - b.data.getTime())
+
+  const previsaoMensal = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1)
+    const total = pagamentosProjetados
+      .filter(p => p.data.getFullYear() === d.getFullYear() && p.data.getMonth() === d.getMonth())
+      .reduce((s, p) => s + p.valor, 0)
+    return { ano: d.getFullYear(), mesIdx: d.getMonth(), mes: MESES_PT[d.getMonth()], val: Math.round(total * 100) / 100 }
+  })
+  const maxValDiv = Math.max(...previsaoMensal.map(d => d.val), 1)
+
+  const estimadoEsteMes = previsaoMensal[0]?.val ?? 0
+  const estimadoRestoAno = previsaoMensal
+    .filter(d => d.ano === hoje.getFullYear())
+    .reduce((s, d) => s + d.val, 0)
+  const estimadoEsteAno = recebidoEsteAno + estimadoRestoAno
+
+  const proximosPagamentos = pagamentosProjetados.slice(0, 5)
+
+  const totalPorTicker = new Map<string, { ticker: string; nome: string; tipo: string; total: number; numPagamentos: number }>()
+  for (const p of pagamentosHistoricos) {
+    const ex = totalPorTicker.get(p.ticker)
+    if (ex) { ex.total += p.valor; ex.numPagamentos += 1 }
+    else totalPorTicker.set(p.ticker, { ticker: p.ticker, nome: p.nome, tipo: p.tipo, total: p.valor, numPagamentos: 1 })
+  }
+  const listaAcoesComDividendos = Array.from(totalPorTicker.values()).sort((a, b) => b.total - a.total)
+
+  const semDadosDiv = !carregandoDiv && posicoes.length > 0 && Object.keys(dividendos).length === 0
+
   return (
     <div className="pb-2">
       {modalAberto&&<ModalTransacao onClose={()=>setModalAberto(false)} onAdd={adicionarTransacao}/>}
@@ -437,30 +611,36 @@ export default function Portfolio() {
         }
       />
       <div className="bg-white px-5 border-b border-stone-100">
-        {/* Abas */}
+        {/* Abas: Posições, Dividendos, Histórico */}
         <div className="flex gap-1 mb-2">
-          {([['posicoes','posicoes',<BarChart2 size={12}/>,'Posições'],['historico','historico',<History size={12}/>,`Histórico`]] as any[]).map(([id,,icon,label])=>(
-            <button key={id} onClick={()=>setAba(id as Aba)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] border transition-colors
-                ${aba===id?'bg-brand-50 border-brand-400 text-brand-800 font-medium':'bg-white border-stone-200 text-stone-600'}`}>
-              {icon}{label}
-              {id==='historico'&&<span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${aba===id?'bg-brand-100 text-brand-700':'bg-stone-100 text-stone-500'}`}>{transacoes.length}</span>}
-            </button>
-          ))}
-          <button onClick={()=>router.push('/dividendos')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] border transition-colors bg-white border-stone-200 text-stone-600">
+          <button onClick={()=>setAba('posicoes')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] border transition-colors
+              ${aba==='posicoes'?'bg-brand-50 border-brand-400 text-brand-800 font-medium':'bg-white border-stone-200 text-stone-600'}`}>
+            <BarChart2 size={12}/>Posições
+          </button>
+          <button onClick={()=>setAba('dividendos')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] border transition-colors
+              ${aba==='dividendos'?'bg-brand-50 border-brand-400 text-brand-800 font-medium':'bg-white border-stone-200 text-stone-600'}`}>
             <Coins size={12}/>Dividendos
           </button>
+          <button onClick={()=>setAba('historico')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] border transition-colors
+              ${aba==='historico'?'bg-brand-50 border-brand-400 text-brand-800 font-medium':'bg-white border-stone-200 text-stone-600'}`}>
+            <History size={12}/>Histórico
+            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${aba==='historico'?'bg-brand-100 text-brand-700':'bg-stone-100 text-stone-500'}`}>{transacoes.length}</span>
+          </button>
         </div>
-        <div className="flex items-center gap-2">
-          <p className="text-[11px] text-stone-400">
-            {ultimaConsulta?`Atualizado: ${ultimaConsulta.toLocaleDateString('pt-PT')} ${ultimaConsulta.toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})}`:carregando?'A carregar...':''}
-          </p>
-          {!carregando&&<button onClick={()=>buscarCotacoes(transacoes)} disabled={atualizando}
-            className="flex items-center gap-1 text-[11px] text-brand-600 disabled:opacity-40">
-            <RefreshCw size={11} className={atualizando?'animate-spin':''}/>{atualizando?'':'Atualizar'}
-          </button>}
-        </div>
+        {aba==='posicoes'&&(
+          <div className="flex items-center gap-2">
+            <p className="text-[11px] text-stone-400">
+              {ultimaConsulta?`Atualizado: ${ultimaConsulta.toLocaleDateString('pt-PT')} ${ultimaConsulta.toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})}`:carregando?'A carregar...':''}
+            </p>
+            {!carregando&&<button onClick={()=>buscarCotacoes(transacoes)} disabled={atualizando}
+              className="flex items-center gap-1 text-[11px] text-brand-600 disabled:opacity-40">
+              <RefreshCw size={11} className={atualizando?'animate-spin':''}/>{atualizando?'':'Atualizar'}
+            </button>}
+          </div>
+        )}
       </div>
 
       <div className="px-4 pt-4 space-y-3">
@@ -524,6 +704,120 @@ export default function Portfolio() {
           )}
         </>)}
 
+        {aba==='dividendos'&&(<>
+          {carregandoDiv ? (
+            <div className="bg-white rounded-2xl border border-stone-200 p-4 space-y-3">
+              <div className="h-4 w-24 bg-stone-100 rounded animate-pulse"/>
+              <div className="grid grid-cols-2 gap-2">
+                {[1,2,3,4,5,6].map(i => <div key={i} className="h-14 bg-stone-50 rounded-xl animate-pulse"/>)}
+              </div>
+            </div>
+          ) : posicoes.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-stone-200 p-6 text-center">
+              <p className="text-[13px] text-stone-500">Adiciona posições para ver os teus dividendos.</p>
+            </div>
+          ) : (
+            <>
+              {/* Resumo */}
+              <div className="bg-white rounded-2xl border border-stone-200 p-4">
+                <p className="text-[11px] font-medium text-stone-400 uppercase tracking-wider mb-3">Resumo</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: 'Total recebido',        value: fmtDiv(totalRecebido),     green: true  },
+                    { label: 'Recebido este ano',     value: fmtDiv(recebidoEsteAno),   green: true  },
+                    { label: 'Ações com dividendos',  value: String(acoesComDividendo), green: false },
+                    { label: 'Estimado este mês',     value: fmtDiv(estimadoEsteMes),   green: false },
+                    { label: 'Estimado este ano',     value: fmtDiv(estimadoEsteAno),   green: false },
+                    { label: 'Yield on Cost',         value: yieldOnCost.toLocaleString('pt-PT',{minimumFractionDigits:1,maximumFractionDigits:1}) + '%', green: false },
+                  ].map(m => (
+                    <div key={m.label} className="bg-stone-50 rounded-xl p-3">
+                      <p className="text-[10px] text-stone-500 mb-1">{m.label}</p>
+                      <p className={`text-[14px] font-semibold ${m.green ? 'text-brand-600' : 'text-stone-900'}`}>
+                        {m.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                {semDadosDiv && (
+                  <p className="text-[11px] text-stone-400 mt-3">
+                    Não foi possível obter dados de dividendos para os teus tickers neste momento.
+                  </p>
+                )}
+              </div>
+
+              {/* Ações com dividendos recebidos */}
+              {listaAcoesComDividendos.length > 0 && (
+                <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden">
+                  <p className="text-[11px] font-medium text-stone-400 uppercase tracking-wider px-4 pt-4 pb-1">
+                    Ações com dividendos recebidos
+                  </p>
+                  {(mostrarTodas ? listaAcoesComDividendos : listaAcoesComDividendos.slice(0, 3)).map(a => (
+                    <DividendoRow
+                      key={a.ticker}
+                      ticker={a.ticker} nome={a.nome} tipo={a.tipo}
+                      valorLabel="Total recebido" valor={fmtDiv(a.total)}
+                      subLabel="Pagamentos" sub={String(a.numPagamentos)}
+                    />
+                  ))}
+                  {listaAcoesComDividendos.length > 3 && (
+                    <button
+                      onClick={() => setMostrarTodas(v => !v)}
+                      className="w-full text-center text-[12px] text-brand-600 font-medium py-3 border-t border-stone-100">
+                      {mostrarTodas
+                        ? 'Mostrar menos'
+                        : `Mostrar mais ${listaAcoesComDividendos.length - 3} ação${listaAcoesComDividendos.length - 3 > 1 ? 'ões' : ''}`}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Previsão mensal */}
+              {pagamentosProjetados.length > 0 && (
+                <div className="bg-white rounded-2xl border border-stone-200 p-4">
+                  <p className="text-[11px] font-medium text-stone-400 uppercase tracking-wider mb-3">
+                    Previsão mensal (próximos 12 meses)
+                  </p>
+                  <div className="space-y-[6px]">
+                    {previsaoMensal.map((d, i) => (
+                      <div key={`${d.mes}-${i}`} className="flex items-center gap-3">
+                        <p className="text-[11px] text-stone-500 w-7">{d.mes}</p>
+                        <div className="flex-1 h-[13px] bg-stone-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-brand-400 rounded-full"
+                            style={{ width: `${(d.val / maxValDiv) * 100}%` }}
+                          />
+                        </div>
+                        <p className="text-[11px] text-stone-600 w-14 text-right">{fmtDiv(d.val)}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-stone-400 mt-3">
+                    Projeção com base na cadência de pagamentos trimestrais de cada posição. Os valores
+                    e datas reais podem variar ligeiramente.
+                  </p>
+                </div>
+              )}
+
+              {/* Próximos pagamentos */}
+              {proximosPagamentos.length > 0 && (
+                <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden">
+                  <p className="text-[11px] font-medium text-stone-400 uppercase tracking-wider px-4 pt-4 pb-1">
+                    Próximos pagamentos
+                  </p>
+                  {proximosPagamentos.map((p, i) => (
+                    <DividendoRow
+                      key={`${p.ticker}-${i}`}
+                      ticker={p.ticker} nome={p.nome} tipo={p.tipo}
+                      valorLabel="Próximo dividendo" valor={fmtDiv(p.valor)}
+                      subLabel="Data" sub={p.data.toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' })}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </>)}
+
         {aba==='historico'&&(<>
           {carregando?(
             <div className="bg-white rounded-2xl border border-stone-200 p-8 text-center"><p className="text-[14px] text-stone-400">A carregar...</p></div>
@@ -531,11 +825,6 @@ export default function Portfolio() {
             <div className="bg-white rounded-2xl border border-stone-200 p-8 text-center"><p className="text-[14px] text-stone-500">Ainda não tens transações.</p></div>
           ):(
             <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden">
-              <div className="flex items-center px-3 py-2 border-b border-stone-100 bg-stone-50">
-                <div className="w-[25px] flex-shrink-0"/>
-                <div className="flex-1"><p className="text-[10px] font-medium text-stone-400 uppercase tracking-wide">Transação</p></div>
-                <p className="text-[10px] font-medium text-stone-400 uppercase tracking-wide mr-8">Total</p>
-              </div>
               {historicoFiltrado.map(t=>(
                 <HistoricoRow key={t.id} t={t} onApagar={()=>setApagarId(t.id)}/>
               ))}
