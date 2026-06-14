@@ -37,13 +37,12 @@ function LogoTicker({ ticker }: { ticker: string }) {
   }
 
   return (
-    <div className="w-10 h-10 rounded-[10px] bg-stone-50 border border-stone-200
-      flex items-center justify-center flex-shrink-0 overflow-hidden">
+    <div className="w-10 h-10 flex items-center justify-center flex-shrink-0 overflow-hidden">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={`https://images.financialmodelingprep.com/symbol/${simbolo}.png`}
         alt={ticker}
-        className="w-full h-full object-contain p-1"
+        className="w-full h-full object-contain"
         onError={() => setErro(true)}
       />
     </div>
