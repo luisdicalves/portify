@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { BarChart2, History, Coins } from 'lucide-react'
+import { BarChart2, History, Coins, Landmark } from 'lucide-react'
 import { PageHeader } from '@/components/PageHeader'
 import { supabase } from '@/lib/supabase'
 
@@ -19,21 +19,6 @@ type DadosDividendo = {
 
 const MESES_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 
-function getBandeira(ticker: string): string {
-  const t = ticker.toUpperCase()
-  if (t.endsWith('.DE')) return '🇩🇪'
-  if (t.endsWith('.PA')) return '🇫🇷'
-  if (t.endsWith('.AS')) return '🇳🇱'
-  if (t.endsWith('.MI')) return '🇮🇹'
-  if (t.endsWith('.MC')) return '🇪🇸'
-  if (t.endsWith('.L'))  return '🇬🇧'
-  if (t.endsWith('.T'))  return '🇯🇵'
-  if (t.endsWith('.LS')) return '🇵🇹'
-  if (t.endsWith('.SW')) return '🇨🇭'
-  if (['VWCE','CSPX','IWDA','EIMI','IUSQ','VUSA','VUAA'].includes(t.split('.')[0])) return '🇮🇪'
-  return '🇺🇸'
-}
-
 function fmt(n: number) {
   return n.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 }
@@ -45,8 +30,8 @@ function LogoTicker({ ticker }: { ticker: string }) {
   if (erro) {
     return (
       <div className="w-10 h-10 rounded-[10px] bg-stone-50 border border-stone-200
-        flex items-center justify-center text-[16px] flex-shrink-0">
-        {getBandeira(ticker)}
+        flex items-center justify-center flex-shrink-0">
+        <Landmark size={18} strokeWidth={1.75} color="#B4B2A9"/>
       </div>
     )
   }
@@ -155,7 +140,7 @@ export default function Dividendos() {
      e também alimentam a estimativa "este mês" / "este ano". */
   const horizonteFim = new Date(hoje.getFullYear(), hoje.getMonth() + 12, hoje.getDate())
 
-  type PagamentoProjetado = { ticker: string; nome: string; data: Date; valor: number }
+  type PagamentoProjetado = { ticker: string; nome: string; tipo: string; data: Date; valor: number }
   const pagamentosProjetados: PagamentoProjetado[] = []
 
   for (const p of dividendoAnualPorPosicao) {
@@ -168,7 +153,7 @@ export default function Dividendos() {
     }
     while (dataPagamento <= horizonteFim) {
       pagamentosProjetados.push({
-        ticker: p.ticker, nome: p.nome, data: new Date(dataPagamento), valor: valorPorPagamento,
+        ticker: p.ticker, nome: p.nome, tipo: p.tipo, data: new Date(dataPagamento), valor: valorPorPagamento,
       })
       dataPagamento = new Date(dataPagamento.getFullYear(), dataPagamento.getMonth() + 3, dataPagamento.getDate())
     }
@@ -345,21 +330,24 @@ export default function Dividendos() {
                 <p className="text-[11px] font-medium text-stone-400 uppercase tracking-wider mb-3">
                   Próximos pagamentos
                 </p>
-                {proximosPagamentos.map((p, i) => (
+                {proximosPagamentos.map((p, i, arr) => (
                   <div key={`${p.ticker}-${i}`}
                     className={`flex items-center gap-3 py-3
-                      ${i < proximosPagamentos.length - 1 ? 'border-b border-stone-100' : ''}`}>
-                    <div className="w-9 h-9 rounded-[9px] bg-stone-50 border border-stone-200
-                      flex items-center justify-center text-[10px] font-semibold text-stone-600 flex-shrink-0">
-                      {p.ticker.slice(0, 4)}
+                      ${i < arr.length - 1 ? 'border-b border-stone-100' : ''}`}>
+                    <LogoTicker ticker={p.ticker} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-[13px] font-semibold text-stone-900 truncate">{p.nome}</p>
+                        <span className="text-[10px] font-medium px-2 py-[2px] rounded-full bg-stone-100 text-stone-500 flex-shrink-0">{p.tipo}</span>
+                      </div>
+                      <p className="text-[11px] text-stone-400 truncate">{p.ticker}</p>
                     </div>
-                    <div className="flex-1">
-                      <p className="text-[13px] font-medium text-stone-900">{p.nome}</p>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-[14px] font-semibold text-brand-600">+{fmt(p.valor)}</p>
                       <p className="text-[11px] text-stone-400">
-                        Pagamento: {p.data.toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' })}
+                        {p.data.toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' })}
                       </p>
                     </div>
-                    <p className="text-[14px] font-semibold text-brand-600">+{fmt(p.valor)}</p>
                   </div>
                 ))}
               </div>
