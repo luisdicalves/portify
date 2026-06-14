@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, X, RefreshCw, Trash2, History, BarChart2, ChevronUp, ChevronDown, Coins } from 'lucide-react'
+import { Plus, X, RefreshCw, Trash2, History, BarChart2, ChevronUp, ChevronDown, Coins, Landmark } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { PageHeader } from '@/components/PageHeader'
@@ -50,6 +50,32 @@ function getBandeira(ticker: string): string {
   if (['VWCE','CSPX','IWDA','EIMI','IUSQ','VUSA','VUAA'].includes(t.split('.')[0])) return '🇮🇪'
   return '🇺🇸'
 }
+function LogoTicker({ ticker }: { ticker: string }) {
+  const [erro, setErro] = useState(false)
+  const simbolo = ticker.split('.')[0].toUpperCase()
+
+  if (erro) {
+    return (
+      <div className="w-10 h-10 rounded-[10px] bg-stone-50 border border-stone-200
+        flex items-center justify-center flex-shrink-0">
+        <Landmark size={18} strokeWidth={1.75} color="#B4B2A9"/>
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-10 h-10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={`https://images.financialmodelingprep.com/symbol/${simbolo}.png`}
+        alt={ticker}
+        className="w-full h-full object-contain"
+        onError={() => setErro(true)}
+      />
+    </div>
+  )
+}
+
 function agregarPosicoes(transacoes: Transacao[]): PosicaoAgregada[] {
   const mapa = new Map<string, PosicaoAgregada>()
   for (const t of transacoes) {
@@ -222,30 +248,45 @@ function PosicaoRow({ pos,cotacao,onApagar }: { pos:PosicaoAgregada;cotacao?:Cot
   const ganho      = valor - custo
   const ganhoPct   = custo>0?(ganho/custo)*100:0
   const positivo   = ganho>=0
-  const bandeira   = cotacao?.bandeira ?? getBandeira(pos.ticker)
+  const nomeFull   = cotacao?.nome ?? pos.ticker
   return (
     <div className="px-3 py-3 border-b border-stone-100 last:border-0">
-      <div className="flex items-center gap-2">
-        <span className="text-[17px] w-[25px] flex-shrink-0">{bandeira}</span>
+      {/* Cabeçalho: logo + nome/tag + ticker, apagar à direita */}
+      <div className="flex items-center gap-2 mb-3">
+        <LogoTicker ticker={pos.ticker}/>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[13px] font-bold text-stone-900">{pos.ticker}</span>
-            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${TIPO_COLORS[pos.tipo]}`}>{pos.tipo}</span>
+            <span className="text-[14px] font-bold text-stone-900 truncate">{nomeFull}</span>
+            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0 ${TIPO_COLORS[pos.tipo]}`}>{pos.tipo}</span>
           </div>
-          <p className="text-[11px] text-stone-400 mt-0.5">{fmt(pos.unidades,4)} ações · PM {fmtEur(pos.preco_medio)}</p>
-          {cotacao&&<p className="text-[10px] text-stone-400 mt-0.5">
-            <span className="font-medium text-stone-600">{fmtEur(cotacao.preco)}</span>
-            {' '}<span className={cotacao.variacaoPct>=0?'text-brand-500':'text-red-400'}>{cotacao.variacaoPct>=0?'+':''}{fmt(cotacao.variacaoPct)}%</span>
-          </p>}
+          <p className="text-[11px] text-stone-400 mt-0.5 truncate">{pos.ticker}</p>
         </div>
-        <div className="flex items-center gap-0 flex-shrink-0">
-          <div className="w-[60px] text-right"><p className="text-[12px] text-stone-600">{fmtEur(custo)}</p></div>
-          <div className="w-[64px] text-right"><p className="text-[12px] font-bold text-stone-900">{fmtEur(valor)}</p></div>
-          <div className="w-[72px] text-right">
-            <p className={`text-[12px] font-semibold ${positivo?'text-brand-600':'text-red-500'}`}>{positivo?'+':''}{fmtEur(ganho)}</p>
-            <p className={`text-[10px] ${positivo?'text-brand-500':'text-red-400'}`}>{positivo?'+':''}{fmt(ganhoPct)}%</p>
-          </div>
-          <button onClick={onApagar} className="ml-2 w-6 h-6 flex items-center justify-center text-stone-300 hover:text-red-400 transition-colors flex-shrink-0"><Trash2 size={13} strokeWidth={1.75}/></button>
+        <button onClick={onApagar} className="w-7 h-7 flex items-center justify-center text-stone-300 hover:text-red-400 transition-colors flex-shrink-0 rounded-full bg-stone-50">
+          <Trash2 size={13} strokeWidth={1.75}/>
+        </button>
+      </div>
+
+      {/* Métricas: 3 colunas estilo cards */}
+      <div className="grid grid-cols-3 gap-2">
+        <div>
+          <p className="text-[10px] text-stone-400 mb-0.5">Unidades</p>
+          <p className="text-[13px] font-bold text-stone-900">{fmt(pos.unidades,4)}</p>
+          <p className="text-[10px] text-stone-400">@ {fmtEur(pos.preco_medio)}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-stone-400 mb-0.5">Valor atual</p>
+          <p className="text-[13px] font-bold text-stone-900">{fmtEur(valor)}</p>
+          {cotacao && (
+            <p className="text-[10px] text-stone-400">
+              <span className="font-medium text-stone-600">{fmtEur(cotacao.preco)}</span>
+              {' '}<span className={cotacao.variacaoPct>=0?'text-brand-500':'text-red-400'}>{cotacao.variacaoPct>=0?'+':''}{fmt(cotacao.variacaoPct)}%</span>
+            </p>
+          )}
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] text-stone-400 mb-0.5">Ganho/Perda</p>
+          <p className={`text-[13px] font-bold ${positivo?'text-brand-600':'text-red-500'}`}>{positivo?'+':''}{fmtEur(ganho)}</p>
+          <p className={`text-[10px] ${positivo?'text-brand-500':'text-red-400'}`}>{positivo?'+':''}{fmt(ganhoPct)}%</p>
         </div>
       </div>
     </div>
@@ -437,33 +478,17 @@ export default function Portfolio() {
             ))}
           </div>
 
-          {/* Cabeçalho clicável com setas */}
+          {/* Ordenação: chips compactos */}
           {ordenadas.length>0&&(
-            <div className="flex items-center px-3 py-1.5 bg-stone-50 rounded-xl">
-              <div className="w-[25px] flex-shrink-0"/>
-              <div className="flex-1">
-                <button onClick={()=>toggleOrdem('ticker')} className="text-[10px] font-medium text-stone-500 uppercase tracking-wide hover:text-brand-600 transition-colors">
-                  Ação<SetaOrdem campo="ticker" ordem={ordem}/>
+            <div className="flex items-center gap-1.5 px-1">
+              <span className="text-[10px] font-medium text-stone-400 uppercase tracking-wide">Ordenar:</span>
+              {([['ticker','Ação'],['custo','Custo'],['valor','Valor'],['ganho_pct','Ganho']] as [OrdemKey,string][]).map(([key,label])=>(
+                <button key={key} onClick={()=>toggleOrdem(key)}
+                  className={`flex items-center gap-0.5 px-2 py-1 rounded-full text-[11px] font-medium transition-colors
+                    ${ordem?.key===key?'bg-brand-50 text-brand-700':'text-stone-500 hover:bg-stone-50'}`}>
+                  {label}<SetaOrdem campo={key} ordem={ordem}/>
                 </button>
-              </div>
-              <div className="flex items-center gap-0 flex-shrink-0">
-                <div className="w-[60px] text-right">
-                  <button onClick={()=>toggleOrdem('custo')} className="text-[10px] font-medium text-stone-500 uppercase tracking-wide hover:text-brand-600 transition-colors">
-                    Custo€<SetaOrdem campo="custo" ordem={ordem}/>
-                  </button>
-                </div>
-                <div className="w-[64px] text-right">
-                  <button onClick={()=>toggleOrdem('valor')} className="text-[10px] font-medium text-stone-500 uppercase tracking-wide hover:text-brand-600 transition-colors">
-                    Valor€<SetaOrdem campo="valor" ordem={ordem}/>
-                  </button>
-                </div>
-                <div className="w-[72px] text-right">
-                  <button onClick={()=>toggleOrdem('ganho_pct')} className="text-[10px] font-medium text-stone-500 uppercase tracking-wide hover:text-brand-600 transition-colors">
-                    Ganho€<SetaOrdem campo="ganho_pct" ordem={ordem}/>
-                  </button>
-                </div>
-                <div className="w-[32px]"/>
-              </div>
+              ))}
             </div>
           )}
 
