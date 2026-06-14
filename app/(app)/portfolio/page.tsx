@@ -8,7 +8,7 @@ import { PageHeader } from '@/components/PageHeader'
 /* ─── Tipos ─── */
 type Tipo     = 'Ação' | 'ETF' | 'REIT'
 type Operacao = 'compra' | 'venda'
-type Filtro   = 'Todos' | 'ETFs' | 'Ações' | 'REITs'
+type Filtro   = 'Todos' | 'Ações' | 'ETFs'
 type Aba      = 'posicoes' | 'dividendos' | 'historico'
 type OrdemKey = 'ticker' | 'custo' | 'valor' | 'ganho_pct'
 type OrdemDir = 'asc' | 'desc'
@@ -272,7 +272,7 @@ function PosicaoRow({ pos,cotacao,onApagar }: { pos:PosicaoAgregada;cotacao?:Cot
           </div>
           <p className="text-[11px] text-stone-400 mt-0.5 truncate">{pos.ticker}</p>
         </div>
-        <button onClick={onApagar} className="w-7 h-7 flex items-center justify-center text-stone-300 hover:text-red-400 transition-colors flex-shrink-0 rounded-full bg-stone-50">
+        <button onClick={onApagar} className="w-7 h-7 flex items-center justify-center text-stone-300 hover:text-red-400 transition-colors flex-shrink-0">
           <Trash2 size={13} strokeWidth={1.75}/>
         </button>
       </div>
@@ -322,7 +322,7 @@ function HistoricoRow({ t,onApagar }: { t:Transacao;onApagar:()=>void }) {
           </div>
           <p className="text-[11px] text-stone-400 mt-0.5 truncate">{t.ticker}</p>
         </div>
-        <button onClick={onApagar} className="w-7 h-7 flex items-center justify-center text-stone-300 hover:text-red-400 transition-colors flex-shrink-0 rounded-full bg-stone-50">
+        <button onClick={onApagar} className="w-7 h-7 flex items-center justify-center text-stone-300 hover:text-red-400 transition-colors flex-shrink-0">
           <Trash2 size={13} strokeWidth={1.75}/>
         </button>
       </div>
@@ -349,31 +349,23 @@ function HistoricoRow({ t,onApagar }: { t:Transacao;onApagar:()=>void }) {
 }
 
 /* ─── Linha "Ação com dividendos" / "Próximo pagamento" — mesmo estilo de card ─── */
-function DividendoRow({ ticker, nome, tipo, valorLabel, valor, subLabel, sub }: {
+function DividendoRow({ ticker, nome, tipo, valor, sub }: {
   ticker: string; nome: string; tipo: string
-  valorLabel: string; valor: string; subLabel: string; sub: string
+  valor: string; sub: string
 }) {
   return (
-    <div className="px-3 py-3 border-b border-stone-100 last:border-0">
-      <div className="flex items-center gap-2 mb-3">
-        <LogoTicker ticker={ticker}/>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[14px] font-bold text-stone-900 truncate">{nome}</span>
-            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500 flex-shrink-0">{tipo}</span>
-          </div>
-          <p className="text-[11px] text-stone-400 mt-0.5 truncate">{ticker}</p>
+    <div className="flex items-center gap-3 py-3 px-3 border-b border-stone-100 last:border-0">
+      <LogoTicker ticker={ticker}/>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <p className="text-[13px] font-semibold text-stone-900 truncate">{nome}</p>
+          <span className="text-[10px] font-medium px-2 py-[2px] rounded-full bg-stone-100 text-stone-500 flex-shrink-0">{tipo}</span>
         </div>
+        <p className="text-[11px] text-stone-400 truncate">{ticker}</p>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <p className="text-[10px] text-stone-400 mb-0.5">{valorLabel}</p>
-          <p className="text-[13px] font-bold text-brand-600">+{valor}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-[10px] text-stone-400 mb-0.5">{subLabel}</p>
-          <p className="text-[13px] font-bold text-stone-900">{sub}</p>
-        </div>
+      <div className="text-right flex-shrink-0">
+        <p className="text-[14px] font-semibold text-brand-600">+{valor}</p>
+        <p className="text-[11px] text-stone-400">{sub}</p>
       </div>
     </div>
   )
@@ -468,13 +460,12 @@ export default function Portfolio() {
   }
 
   const posicoes = agregarPosicoes(transacoes)
-  const contagens = { Todos:posicoes.length, ETFs:posicoes.filter(p=>p.tipo==='ETF').length, Ações:posicoes.filter(p=>p.tipo==='Ação').length, REITs:posicoes.filter(p=>p.tipo==='REIT').length }
+  const contagens = { Todos:posicoes.length, Ações:posicoes.filter(p=>p.tipo==='Ação').length, ETFs:posicoes.filter(p=>p.tipo==='ETF').length }
 
   const filtradas = posicoes.filter(p=>{
     if(filtro==='Todos') return true
-    if(filtro==='ETFs')  return p.tipo==='ETF'
     if(filtro==='Ações') return p.tipo==='Ação'
-    if(filtro==='REITs') return p.tipo==='REIT'
+    if(filtro==='ETFs')  return p.tipo==='ETF'
     return true
   })
 
@@ -627,7 +618,6 @@ export default function Portfolio() {
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] border transition-colors
               ${aba==='historico'?'bg-brand-50 border-brand-400 text-brand-800 font-medium':'bg-white border-stone-200 text-stone-600'}`}>
             <History size={12}/>Histórico
-            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${aba==='historico'?'bg-brand-100 text-brand-700':'bg-stone-100 text-stone-500'}`}>{transacoes.length}</span>
           </button>
         </div>
         {aba==='posicoes'&&(
@@ -648,7 +638,7 @@ export default function Portfolio() {
         {aba==='posicoes'&&(<>
           {/* Filtros */}
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {(['Todos','ETFs','Ações','REITs'] as Filtro[]).map(f=>(
+            {(['Todos','Ações','ETFs'] as Filtro[]).map(f=>(
               <button key={f} onClick={()=>setFiltro(f)}
                 className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] border transition-colors
                   ${filtro===f?'bg-brand-50 border-brand-400 text-brand-800 font-medium':'bg-white border-stone-200 text-stone-600'}`}>
@@ -755,8 +745,8 @@ export default function Portfolio() {
                     <DividendoRow
                       key={a.ticker}
                       ticker={a.ticker} nome={a.nome} tipo={a.tipo}
-                      valorLabel="Total recebido" valor={fmtDiv(a.total)}
-                      subLabel="Pagamentos" sub={String(a.numPagamentos)}
+                      valor={fmtDiv(a.total)}
+                      sub={`${a.numPagamentos} pagamento${a.numPagamentos > 1 ? 's' : ''}`}
                     />
                   ))}
                   {listaAcoesComDividendos.length > 3 && (
@@ -808,8 +798,8 @@ export default function Portfolio() {
                     <DividendoRow
                       key={`${p.ticker}-${i}`}
                       ticker={p.ticker} nome={p.nome} tipo={p.tipo}
-                      valorLabel="Próximo dividendo" valor={fmtDiv(p.valor)}
-                      subLabel="Data" sub={p.data.toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' })}
+                      valor={fmtDiv(p.valor)}
+                      sub={`Pagamento: ${p.data.toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' })}`}
                     />
                   ))}
                 </div>
