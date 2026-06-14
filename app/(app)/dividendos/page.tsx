@@ -38,6 +38,33 @@ function fmt(n: number) {
   return n.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 }
 
+function LogoTicker({ ticker }: { ticker: string }) {
+  const [erro, setErro] = useState(false)
+  const simbolo = ticker.split('.')[0].toUpperCase() // remove sufixo de bolsa (.LS, .DE, etc.)
+
+  if (erro) {
+    return (
+      <div className="w-10 h-10 rounded-[10px] bg-stone-50 border border-stone-200
+        flex items-center justify-center text-[16px] flex-shrink-0">
+        {getBandeira(ticker)}
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-10 h-10 rounded-[10px] bg-stone-50 border border-stone-200
+      flex items-center justify-center flex-shrink-0 overflow-hidden">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={`https://images.financialmodelingprep.com/symbol/${simbolo}.png`}
+        alt={ticker}
+        className="w-full h-full object-contain p-1"
+        onError={() => setErro(true)}
+      />
+    </div>
+  )
+}
+
 function agregarPosicoes(transacoes: Transacao[]): PosicaoAgregada[] {
   const mapa = new Map<string, PosicaoAgregada>()
   for (const t of transacoes) {
@@ -257,10 +284,7 @@ export default function Dividendos() {
                   <div key={a.ticker}
                     className={`flex items-center gap-3 py-3
                       ${i < arr.length - 1 ? 'border-b border-stone-100' : ''}`}>
-                    <div className="w-10 h-10 rounded-[10px] bg-stone-50 border border-stone-200
-                      flex items-center justify-center text-[16px] flex-shrink-0">
-                      {getBandeira(a.ticker)}
-                    </div>
+                    <LogoTicker ticker={a.ticker} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="text-[13px] font-semibold text-stone-900 truncate">{a.nome}</p>
